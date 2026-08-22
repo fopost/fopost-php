@@ -16,7 +16,7 @@ use InvalidArgumentException;
 /**
  * Client for the FoPost API.
  *
- *     $client = new \Fopost\Sdk\Client('fop_live_...');
+ *     $client = new \Fopost\Sdk\Client('fp_...');
  *     $accounts = $client->accounts()->list('9b2f6c1e-...');
  *
  * The key falls back to the FOPOST_API_KEY environment variable. Requests that

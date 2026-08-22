@@ -29,7 +29,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 use Fopost\Sdk\Client;
 
-$client = new Client('fop_live_...');           // or set FOPOST_API_KEY
+$client = new Client('fp_...');           // or set FOPOST_API_KEY
 
 $workspace = $client->workspaces()->list()[0];
 $accounts = $client->accounts()->list($workspace->id);
@@ -47,7 +47,7 @@ The key falls back to the `FOPOST_API_KEY` environment variable, so `new Client(
 
 ```php
 $client = new Client(
-    apiKey: 'fop_live_...',
+    apiKey: 'fp_...',
     baseUrl: 'https://api.fopost.com',  // a bare host gets /api/v1 appended
     timeout: 30.0,                      // seconds
     maxRetries: 3,                      // attempts, on 429 only
