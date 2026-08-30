@@ -17,7 +17,7 @@ final class AiTest extends TestCase
 
         $balance = $this->client()->ai()->credits();
 
-        $this->assertSame('https://api.fopost.com/api/v1/ai/credits', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/ai/credits', $this->transport->last()['url']);
         $this->assertSame(120, $balance->creditsRemaining);
         $this->assertSame(200, $balance->creditsTotal);
         $this->assertSame('2026-02-01', $balance->periodEnd?->format('Y-m-d'));
@@ -33,7 +33,7 @@ final class AiTest extends TestCase
             charLimit: 280,
         );
 
-        $this->assertSame('https://api.fopost.com/api/v1/ai/generate-caption', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/ai/generate-caption', $this->transport->last()['url']);
         $this->assertSame(
             ['current_caption' => 'draft', 'platforms' => ['bluesky'], 'char_limit' => 280],
             $this->transport->lastJson(),
@@ -72,7 +72,7 @@ final class AiTest extends TestCase
 
         $result = $this->client()->ai()->repurposeUrl('https://example.com/post', ['bluesky', 'linkedin']);
 
-        $this->assertSame('https://api.fopost.com/api/v1/ai/repurpose-url', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/ai/repurpose-url', $this->transport->last()['url']);
         $this->assertSame('A post', $result->title);
         $this->assertSame('Short', $result->posts['bluesky']);
     }

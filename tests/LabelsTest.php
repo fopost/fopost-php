@@ -12,7 +12,7 @@ final class LabelsTest extends TestCase
 
         $labels = $this->client()->labels()->list('w_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/labels?workspace_id=w_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/labels?workspace_id=w_1', $this->transport->last()['url']);
         $this->assertSame('Launch', $labels[0]->name);
         $this->assertSame('#0070f3', $labels[0]->color);
     }
@@ -24,7 +24,7 @@ final class LabelsTest extends TestCase
         $label = $this->client()->labels()->create('w_1', 'Launch', '#0070f3');
 
         $this->assertSame('POST', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/labels', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/labels', $this->transport->last()['url']);
         $this->assertSame(
             ['workspace_id' => 'w_1', 'name' => 'Launch', 'color' => '#0070f3'],
             $this->transport->lastJson(),
@@ -39,7 +39,7 @@ final class LabelsTest extends TestCase
         $this->client()->labels()->update('l_1', 'Renamed');
 
         $this->assertSame('PUT', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/labels/l_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/labels/l_1', $this->transport->last()['url']);
         $this->assertSame(['name' => 'Renamed'], $this->transport->lastJson());
     }
 
@@ -50,6 +50,6 @@ final class LabelsTest extends TestCase
         $this->client()->labels()->delete('l_1');
 
         $this->assertSame('DELETE', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/labels/l_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/labels/l_1', $this->transport->last()['url']);
     }
 }
