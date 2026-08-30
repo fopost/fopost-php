@@ -19,6 +19,9 @@ These repos wrap this SDK and must be updated in lockstep:
 
 - `fopost-laravel` — Laravel package (`fopost/laravel`): service provider, facade, config, events
 - `fopost-symfony` — Symfony bundle: DI wiring and config over this SDK
+- `fopost-woocommerce` — WordPress/WooCommerce plugin; bundles this SDK in its release zip.
+  It is NOT a child of `fopost-wp` (that plugin is inbound-only and exposes no client), so a
+  breaking change here reaches WooCommerce users through this package.
 
 **Whenever you change this SDK's public surface — a renamed method, a changed parameter,
 a new or removed resource, a new error type, a bumped minimum language version — you must
