@@ -13,8 +13,8 @@ use InvalidArgumentException;
 /** Auth headers, JSON coding, envelope unwrap, and the retry loop. */
 final class HttpClient
 {
-    public const DEFAULT_BASE_URL = 'https://api.fopost.com/api/v1';
-    public const API_PATH_SUFFIX = '/api/v1';
+    public const DEFAULT_BASE_URL = 'https://api.fopost.com/v1';
+    public const API_PATH_SUFFIX = '/v1';
     public const DEFAULT_TIMEOUT = 30.0;
     public const DEFAULT_MAX_RETRIES = 3;
     public const MAX_RETRY_WAIT = 60.0;
@@ -50,7 +50,7 @@ final class HttpClient
 
     /**
      * A host with no path gets the API path suffix appended, so both
-     * https://api.fopost.com and https://api.fopost.com/api/v1 work.
+     * https://api.fopost.com and https://api.fopost.com/v1 work.
      */
     public static function normalizeBaseUrl(string $baseUrl): string
     {

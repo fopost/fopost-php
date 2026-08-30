@@ -62,7 +62,7 @@ final class PostsTest extends TestCase
 
         $post = $this->client()->posts()->get('p_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/posts/p_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/posts/p_1', $this->transport->last()['url']);
         $this->assertInstanceOf(Post::class, $post);
         $this->assertSame('published', $post->status);
         $this->assertSame('2026-03-01 09:00', $post->scheduleAt?->format('Y-m-d H:i'));
@@ -80,7 +80,7 @@ final class PostsTest extends TestCase
         );
 
         $this->assertSame('POST', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/posts', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/posts', $this->transport->last()['url']);
         $this->assertSame([
             'workspace_id' => 'w_1',
             'status' => 'draft',
@@ -135,7 +135,7 @@ final class PostsTest extends TestCase
         $this->client()->posts()->delete('p_1');
 
         $this->assertSame('DELETE', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/posts/p_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/posts/p_1', $this->transport->last()['url']);
     }
 
     public function testPublishQueuesThePost(): void
@@ -144,7 +144,7 @@ final class PostsTest extends TestCase
 
         $result = $this->client()->posts()->publish('p_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/posts/p_1/publish', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/posts/p_1/publish', $this->transport->last()['url']);
         $this->assertSame(['queued' => 2], $result);
     }
 
@@ -155,7 +155,7 @@ final class PostsTest extends TestCase
         $this->client()->posts()->schedule('p_1', new DateTimeImmutable('2026-03-01T09:00:00+00:00'));
 
         $this->assertSame('POST', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/posts/p_1/schedule', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/posts/p_1/schedule', $this->transport->last()['url']);
         $this->assertSame(['schedule_at' => '2026-03-01T09:00:00Z'], $this->transport->lastJson());
     }
 
@@ -167,7 +167,7 @@ final class PostsTest extends TestCase
 
         $deliveries = $this->client()->posts()->deliveries('p_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/posts/p_1/deliveries', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/posts/p_1/deliveries', $this->transport->last()['url']);
         $this->assertSame('d_1', $deliveries[0]->id);
         $this->assertSame('https://x.test/1', $deliveries[0]->externalUrl);
     }

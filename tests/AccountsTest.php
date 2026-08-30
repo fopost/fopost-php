@@ -14,7 +14,7 @@ final class AccountsTest extends TestCase
 
         $accounts = $this->client()->accounts()->list('w_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/accounts?workspaceId=w_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/accounts?workspaceId=w_1', $this->transport->last()['url']);
         $this->assertCount(1, $accounts);
         $this->assertSame('a_1', $accounts[0]->id);
         $this->assertTrue($accounts[0]->isPrimary);
@@ -25,7 +25,7 @@ final class AccountsTest extends TestCase
         $this->transport->push(200, ['data' => []]);
         $this->client()->accounts()->list();
 
-        $this->assertSame('https://api.fopost.com/api/v1/accounts', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/accounts', $this->transport->last()['url']);
     }
 
     public function testGetReturnsOneAccount(): void
@@ -34,7 +34,7 @@ final class AccountsTest extends TestCase
 
         $account = $this->client()->accounts()->get('a_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/accounts/a_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1', $this->transport->last()['url']);
         $this->assertSame('mastodon', $account->platform);
     }
 
@@ -45,7 +45,7 @@ final class AccountsTest extends TestCase
         $result = $this->client()->accounts()->disconnect('a_1');
 
         $this->assertSame('DELETE', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/accounts/a_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1', $this->transport->last()['url']);
         $this->assertSame(['deleted' => true], $result);
     }
 
@@ -55,7 +55,7 @@ final class AccountsTest extends TestCase
 
         $health = $this->client()->accounts()->health('a_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/accounts/a_1/health', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/health', $this->transport->last()['url']);
         $this->assertSame(['status' => 'healthy'], $health);
     }
 }

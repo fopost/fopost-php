@@ -15,7 +15,7 @@ final class WorkspacesTest extends TestCase
         $workspaces = $this->client()->workspaces()->list();
 
         $this->assertSame('GET', $this->transport->last()['method']);
-        $this->assertSame('https://api.fopost.com/api/v1/workspaces', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces', $this->transport->last()['url']);
         $this->assertCount(1, $workspaces);
         $this->assertSame('w_1', $workspaces[0]->id);
         $this->assertSame('Studio', $workspaces[0]->name);
@@ -33,7 +33,7 @@ final class WorkspacesTest extends TestCase
 
         $workspace = $this->client()->workspaces()->get('w_1');
 
-        $this->assertSame('https://api.fopost.com/api/v1/workspaces/w_1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces/w_1', $this->transport->last()['url']);
         $this->assertSame('w_1', $workspace->id);
         $this->assertSame('2026-01-05', $workspace->createdAt?->format('Y-m-d'));
         $this->assertCount(1, $workspace->accounts);

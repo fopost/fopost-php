@@ -22,27 +22,36 @@ final class ClientTest extends TestCase
         $this->assertSame('application/json', $headers['Content-Type']);
     }
 
-    public function testDefaultBaseUrlKeepsTheApiVersionSuffix(): void
+    public function testDefaultBaseUrlIsTheDocumentedV1Path(): void
     {
-        $this->assertSame('https://api.fopost.com/api/v1', Client::DEFAULT_BASE_URL);
+        $this->assertSame('https://api.fopost.com/v1', Client::DEFAULT_BASE_URL);
+        $this->assertStringNotContainsString('/api/v1', Client::DEFAULT_BASE_URL);
 
         $this->transport->push(200, ['data' => []]);
         $client = $this->client();
         $client->workspaces()->list();
 
-        $this->assertSame('https://api.fopost.com/api/v1', $client->baseUrl());
-        $this->assertSame('https://api.fopost.com/api/v1/workspaces', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1', $client->baseUrl());
+
+        $url = $this->transport->last()['url'];
+        $this->assertSame('https://api.fopost.com/v1/workspaces', $url);
+        $this->assertStringNotContainsString('/api/v1/', $url);
     }
 
-    public function testABareHostGetsTheApiVersionSuffixAppended(): void
+    public function testABareHostGetsTheV1SuffixAppendedAndNeverApiV1(): void
     {
-        $this->assertSame('https://api.fopost.com/api/v1', HttpClient::normalizeBaseUrl('https://api.fopost.com'));
-        $this->assertSame('https://api.fopost.com/api/v1', HttpClient::normalizeBaseUrl('https://api.fopost.com/'));
+        $this->assertSame('/v1', HttpClient::API_PATH_SUFFIX);
+        $this->assertSame('https://api.fopost.com/v1', HttpClient::normalizeBaseUrl('https://api.fopost.com'));
+        $this->assertSame('https://api.fopost.com/v1', HttpClient::normalizeBaseUrl('https://api.fopost.com/'));
         $this->assertSame(
-            'https://api.fopost.com/api/v1',
-            HttpClient::normalizeBaseUrl('https://api.fopost.com/api/v1'),
+            'https://api.fopost.com/v1',
+            HttpClient::normalizeBaseUrl('https://api.fopost.com/v1'),
         );
-        $this->assertSame('http://localhost:8080/api/v1', HttpClient::normalizeBaseUrl('http://localhost:8080'));
+        $this->assertSame('http://localhost:8080/v1', HttpClient::normalizeBaseUrl('http://localhost:8080'));
+        $this->assertStringNotContainsString(
+            '/api/v1',
+            HttpClient::normalizeBaseUrl('https://api.fopost.com'),
+        );
     }
 
     public function testAMissingApiKeyIsRejected(): void
@@ -67,7 +76,7 @@ final class ClientTest extends TestCase
         $body = $this->client()->request('GET', '/anything', null, ['a' => 1, 'b' => null]);
 
         $this->assertSame(['ok' => true], $body);
-        $this->assertSame('https://api.fopost.com/api/v1/anything?a=1', $this->transport->last()['url']);
+        $this->assertSame('https://api.fopost.com/v1/anything?a=1', $this->transport->last()['url']);
     }
 
     public function testA204ReturnsNothing(): void
