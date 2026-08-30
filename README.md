@@ -48,7 +48,7 @@ The key falls back to the `FOPOST_API_KEY` environment variable, so `new Client(
 ```php
 $client = new Client(
     apiKey: 'fp_...',
-    baseUrl: 'https://api.fopost.com',  // a bare host gets /api/v1 appended
+    baseUrl: 'https://api.fopost.com',  // a bare host gets /v1 appended
     timeout: 30.0,                      // seconds
     maxRetries: 3,                      // attempts, on 429 only
 );
