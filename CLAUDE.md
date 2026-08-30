@@ -81,10 +81,11 @@ through the escape hatch `Client::request()` until one is added.
 
 ## API Contract
 
-- **Base URL:** `HttpClient::DEFAULT_BASE_URL` = `https://api.fopost.com/api/v1`.
-  `HttpClient::normalizeBaseUrl()` appends `/api/v1` when the given URL has no path, so both
-  `https://api.fopost.com` and the full URL work. There is **no `FOPOST_BASE_URL` env read** —
-  pass `baseUrl` to the constructor.
+- **Base URL:** `HttpClient::DEFAULT_BASE_URL` = `https://api.fopost.com/v1`, the path the
+  API actually serves and the docs publish. `/api/v1` is **not** served and returns 404 —
+  never reintroduce it. `HttpClient::normalizeBaseUrl()` appends `HttpClient::API_PATH_SUFFIX`
+  (`/v1`) when the given URL has no path, so both `https://api.fopost.com` and the full URL
+  work. There is **no `FOPOST_BASE_URL` env read** — pass `baseUrl` to the constructor.
 - **Auth:** header `X-API-Key: <key>`, never Bearer. The key falls back to the `FOPOST_API_KEY`
   environment variable (`getenv()` then `$_ENV`); a missing key is an `InvalidArgumentException`
   before any request goes out.
