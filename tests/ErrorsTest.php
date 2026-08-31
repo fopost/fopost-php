@@ -76,7 +76,7 @@ final class ErrorsTest extends TestCase
         $this->transport->push(402, [
             'error' => 'insufficient_credits',
             'message' => 'Out of AI credits',
-            'upgrade_url' => 'https://app.fopost.com/billing',
+            'upgrade_url' => 'https://fopost.com/dashboard/billing',
         ]);
 
         try {
@@ -84,7 +84,7 @@ final class ErrorsTest extends TestCase
             $this->fail('expected a PaymentRequiredException');
         } catch (PaymentRequiredException $e) {
             $this->assertSame(402, $e->getStatus());
-            $this->assertSame('https://app.fopost.com/billing', $e->getUpgradeUrl());
+            $this->assertSame('https://fopost.com/dashboard/billing', $e->getUpgradeUrl());
         }
     }
 
