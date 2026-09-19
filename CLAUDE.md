@@ -91,7 +91,7 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
   endpoint; `Page` is `IteratorAggregate + Countable + ArrayAccess` and read-only.
 
 **Resources wired today:** `posts`, `accounts`, `accountGroups`, `workspaces`, `labels`, `ai`,
-`inbox`, `ads`, `media`, `validate`. There is no `communities`, `webhooks`, `analytics`, or
+`inbox`, `contacts`, `ads`, `media`, `validate`. There is no `communities`, `webhooks`, `analytics`, or
 `automations` resource here — reach those through the escape hatch `Client::request()` until one
 is added.
 
@@ -102,6 +102,12 @@ is added.
   download path). The read and refresh bodies are snake_case, the item `PATCH` is camelCase
   (`snoozedUntil`), and list `meta` is `{page, perPage, total}` — `PageMeta` reads `page` as
   `currentPage` for it.
+- `contacts` (scope `inbox`) covers `/contacts` (list/get/create/update/delete), `import`,
+  `{id}/conversations` and the `/contacts/fields` family. `createField` puts the workspace on the
+  query string, not in the body, because the handler reads it from there. The list envelope is
+  `{data, pagination}` rather than `{data, meta}`, so `list()` builds its own `PageMeta`.
+  `conversationAnalytics()` reaches `/analytics/inbox/conversations` and needs the `analytics`
+  scope instead.
 - `ads` (scope `ads`) covers the full `/ads` family: ads, external ads, boostable posts,
   connections (+ Meta authorize), sources, boost, create, refresh, status, delete, audiences,
   targeting search, lead forms and leads, plus the campaign tree (campaigns, ad sets, network ads,

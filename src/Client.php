@@ -10,6 +10,7 @@ use Fopost\Sdk\Resource\AccountGroupsResource;
 use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AiResource;
+use Fopost\Sdk\Resource\ContactsResource;
 use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\MediaResource;
@@ -41,6 +42,7 @@ final class Client
     private readonly LabelsResource $labels;
     private readonly AiResource $ai;
     private readonly InboxResource $inbox;
+    private readonly ContactsResource $contacts;
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
@@ -68,6 +70,7 @@ final class Client
         $this->labels = new LabelsResource($this->http);
         $this->ai = new AiResource($this->http);
         $this->inbox = new InboxResource($this->http);
+        $this->contacts = new ContactsResource($this->http);
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
@@ -106,6 +109,11 @@ final class Client
     public function inbox(): InboxResource
     {
         return $this->inbox;
+    }
+
+    public function contacts(): ContactsResource
+    {
+        return $this->contacts;
     }
 
     public function ads(): AdsResource

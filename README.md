@@ -238,6 +238,53 @@ foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
 $client->inbox()->rejectReply($approval->id);
 ```
 
+## Contacts
+
+The people behind the inbox. A contact is one human however many handles they write from: an inbound item files its author, a reply files whoever you answered, and both fold into whatever is already on file. Needs the `inbox` scope.
+
+```php
+use Fopost\Sdk\Model\ContactChannel;
+
+$page = $client->contacts()->list($workspaceId, search: 'ada');
+foreach ($page as $contact) {
+    echo $contact->displayName, ' — ', count($contact->channels), ' handles', PHP_EOL;
+}
+echo $page->meta->total;
+
+$contact = $client->contacts()->get($contactId);
+
+// Folds into whoever already holds the first channel, so this cannot duplicate someone.
+$contact = $client->contacts()->create(
+    $workspaceId,
+    [ContactChannel::make('x', 'ada_writes')],
+    displayName: 'Ada Okafor',
+    fields: ['plan_tier' => 'Pro'],
+);
+
+$client->contacts()->update($contact->id, fields: ['region' => null]); // null clears a field
+$client->contacts()->delete($contact->id);                             // the messages stay
+
+// The threads this person appears in, newest first.
+foreach ($client->contacts()->conversations($contact->id) as $thread) {
+    echo $thread->platform, ' ', $thread->messages, ' messages', PHP_EOL;
+}
+
+// platform and handle are required columns; any other column is a custom field key.
+$result = $client->contacts()->import($workspaceId, "platform,handle\nx,ada_writes");
+echo $result->created, ' created, ', $result->merged, ' merged';
+print_r($result->unknownColumns);
+
+// The columns your workspace keeps.
+$fields = $client->contacts()->listFields($workspaceId);
+$field = $client->contacts()->createField($workspaceId, 'plan_tier', 'Plan Tier', 'select', ['Free', 'Pro']);
+$client->contacts()->updateField($field->id, name: 'Tier');
+$client->contacts()->deleteField($field->id);   // removes every answer to it
+
+// Volume and median reply time per thread. Needs the `analytics` scope.
+$report = $client->contacts()->conversationAnalytics(days: 30, sort: 'slowest');
+echo $report->conversations[0]->medianResponseMinutes;
+```
+
 ## Ads
 
 Meta ads, audiences and lead forms. Needs the `ads` scope; `boost()`, `create()`, `setStatus()` and `delete()` spend money and also need `publish`. A boost or ad starts paused unless `paused: false` is passed.
