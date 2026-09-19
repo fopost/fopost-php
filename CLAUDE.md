@@ -65,7 +65,9 @@ src/
     Inbox*.php (item, thread, conversation, account, platform, approval, reply, refresh and start-conversation results)
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
-    LeadForm.php LeadFormSource.php Lead.php LeadsPage.php
+    LeadForm.php LeadFormSource.php Lead.php LeadsPage.php LeadFormDetail.php FeedLead.php LeadsFeedPage.php LeadPage.php
+    AdAccountTree.php AdCampaign.php AdSet.php NetworkAd.php AdCreative.php BulkAdStatusResult.php
+    AdInsightsReport.php InsightsMetrics.php InsightsRow.php ReachEstimate.php
     PostValidation.php LengthValidation.php MediaValidation.php (+ per-platform rows, ValidationSignal)
   Exception/
     FopostException.php ErrorFactory.php + one subclass per status
@@ -101,8 +103,12 @@ is added.
   `currentPage` for it.
 - `ads` (scope `ads`) covers the full `/ads` family: ads, external ads, boostable posts,
   connections (+ Meta authorize), sources, boost, create, refresh, status, delete, audiences,
-  targeting search, lead forms and leads. `boost()`, `create()`, `setStatus()` and `delete()` also
-  need the `publish` scope, and a boost or ad starts paused unless `paused` is `false`. Request
+  targeting search, lead forms and leads, plus the campaign tree (campaigns, ad sets, network ads,
+  duplicate, bulk status), creatives, audience detail and users, reach, insights, and the stored leads
+  feed with Page subscriptions. `boost()`, `create()`, `setStatus()`, `delete()`, `bulkSetStatus()` and
+  every campaign, ad set and network ad write also need the `publish` scope, and anything created
+  starts paused unless `paused` is `false`. Campaign-tree objects take Meta ids plus `connection_id`
+  and are read live. An empty update or duplicate body goes out as `{}` because the API rejects none. Request
   bodies are camelCase; query params stay snake_case. `Resource::page()` is the shared
   `{data, meta}` → `Page` helper.
 - `media` (scope `posts`) is direct upload only: `presign()` → `PresignedUpload`, `complete()` →
