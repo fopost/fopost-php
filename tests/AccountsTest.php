@@ -125,4 +125,73 @@ final class AccountsTest extends TestCase
             $this->assertSame(['posts'], $e->getBody()['blocking_tables']);
         }
     }
+
+    public function testCreateTelegramConnectCode(): void
+    {
+        $this->transport->push(201, ['data' => [
+            'code' => 'abc123',
+            'command' => '/connect abc123',
+            'bot_username' => 'fopost_bot',
+            'deep_link' => 'https://t.me/fopost_bot?start=abc123',
+            'group_link' => null,
+            'expires_at' => '2026-09-19T12:15:00Z',
+        ]]);
+
+        $minted = $this->client()->accounts()->createTelegramConnectCode('w_1');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/telegram/connect-code', $this->transport->last()['url']);
+        $this->assertSame(['workspaceId' => 'w_1'], $this->transport->lastJson());
+        $this->assertSame('/connect abc123', $minted->command);
+        $this->assertSame('fopost_bot', $minted->botUsername);
+        $this->assertNull($minted->groupLink);
+    }
+
+    public function testCreateTelegramConnectCodeWithoutWorkspaceSendsAnEmptyObject(): void
+    {
+        $this->transport->push(201, ['data' => ['code' => 'c', 'command' => '/connect c']]);
+
+        $this->client()->accounts()->createTelegramConnectCode();
+
+        $this->assertSame('{}', $this->transport->last()['body']);
+    }
+
+    public function testGetTelegramConnectStatus(): void
+    {
+        $this->transport->push(200, ['data' => ['status' => 'failed', 'account_id' => null, 'reason' => 'slot_taken']]);
+
+        $status = $this->client()->accounts()->getTelegramConnectStatus('abc123');
+
+        $this->assertSame(
+            'https://api.fopost.com/v1/accounts/telegram/connect-code/status?code=abc123',
+            $this->transport->last()['url'],
+        );
+        $this->assertSame('failed', $status->status);
+        $this->assertSame('slot_taken', $status->reason);
+    }
+
+    public function testTelegramBotCommandsRoutes(): void
+    {
+        $commands = [['command' => 'start', 'description' => 'Start the bot']];
+        $url = 'https://api.fopost.com/v1/accounts/a_1/telegram/commands';
+
+        $this->transport->push(200, ['data' => ['commands' => $commands]]);
+        $listed = $this->client()->accounts()->getTelegramBotCommands('a_1');
+        $this->assertSame('GET', $this->transport->last()['method']);
+        $this->assertSame($url, $this->transport->last()['url']);
+        $this->assertSame('start', $listed->commands[0]->command);
+
+        $this->transport->push(200, ['data' => ['commands' => $commands]]);
+        $set = $this->client()->accounts()->setTelegramBotCommands('a_1', $commands);
+        $this->assertSame('PUT', $this->transport->last()['method']);
+        $this->assertSame($url, $this->transport->last()['url']);
+        $this->assertSame(['commands' => $commands], $this->transport->lastJson());
+        $this->assertSame('Start the bot', $set->commands[0]->description);
+
+        $this->transport->push(200, ['data' => ['commands' => []]]);
+        $cleared = $this->client()->accounts()->deleteTelegramBotCommands('a_1');
+        $this->assertSame('DELETE', $this->transport->last()['method']);
+        $this->assertSame($url, $this->transport->last()['url']);
+        $this->assertSame([], $cleared->commands);
+    }
 }

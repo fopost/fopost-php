@@ -7,6 +7,10 @@ namespace Fopost\Sdk\Resource;
 use Fopost\Sdk\Model\AccountMove;
 use Fopost\Sdk\Model\AccountRename;
 use Fopost\Sdk\Model\SocialAccount;
+use Fopost\Sdk\Model\TelegramBotCommand;
+use Fopost\Sdk\Model\TelegramBotCommands;
+use Fopost\Sdk\Model\TelegramConnectCode;
+use Fopost\Sdk\Model\TelegramConnectStatus;
 
 /** $client->accounts(): the social accounts connected to a workspace. */
 final class AccountsResource extends Resource
@@ -62,6 +66,59 @@ final class AccountsResource extends Resource
     {
         return AccountMove::fromArray(self::unwrap(
             $this->http->post("/accounts/{$accountId}/move", ['workspace_id' => $workspaceId]),
+        ));
+    }
+
+    /**
+     * Mint a one-time code; send `/connect <code>` to the bot in a chat to connect it.
+     * $workspaceId may be omitted for a key bound to one workspace.
+     */
+    public function createTelegramConnectCode(?string $workspaceId = null): TelegramConnectCode
+    {
+        $body = $workspaceId === null ? (object) [] : ['workspaceId' => $workspaceId];
+
+        return TelegramConnectCode::fromArray(self::unwrap(
+            $this->http->post('/accounts/telegram/connect-code', $body),
+        ));
+    }
+
+    public function getTelegramConnectStatus(string $code): TelegramConnectStatus
+    {
+        return TelegramConnectStatus::fromArray(self::unwrap(
+            $this->http->get('/accounts/telegram/connect-code/status', ['code' => $code]),
+        ));
+    }
+
+    public function getTelegramBotCommands(string $accountId): TelegramBotCommands
+    {
+        return TelegramBotCommands::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/telegram/commands"),
+        ));
+    }
+
+    /**
+     * Replace the bot's command menu for this chat.
+     *
+     * @param array<int, TelegramBotCommand|array{command: string, description: string}> $commands
+     */
+    public function setTelegramBotCommands(string $accountId, array $commands): TelegramBotCommands
+    {
+        $payload = array_map(
+            static fn (TelegramBotCommand|array $c): array => $c instanceof TelegramBotCommand
+                ? ['command' => $c->command, 'description' => $c->description]
+                : ['command' => $c['command'], 'description' => $c['description']],
+            array_values($commands),
+        );
+
+        return TelegramBotCommands::fromArray(self::unwrap(
+            $this->http->put("/accounts/{$accountId}/telegram/commands", ['commands' => $payload]),
+        ));
+    }
+
+    public function deleteTelegramBotCommands(string $accountId): TelegramBotCommands
+    {
+        return TelegramBotCommands::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/telegram/commands"),
         ));
     }
 }
