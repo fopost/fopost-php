@@ -257,6 +257,25 @@ $leads = $client->ads()->leads($formId, $connectionId, '555');
 $more = $client->ads()->leads($formId, $connectionId, '555', after: $leads->nextCursor);
 ```
 
+## Validate
+
+Check a draft before you schedule it. Nothing is stored; needs the `posts` scope.
+
+```php
+$check = $client->validate()->post(['bluesky', 'linkedin'], 'One draft, many networks', [
+    ['url' => 'https://yourbrand.com/launch.png', 'mime_type' => 'image/png', 'size' => 204800],
+]);
+$check->ready;                          // true only when every platform is ready
+$check->platforms[0]->issues;           // hard blockers
+$check->platforms[0]->signals;          // advisory, never blocks
+
+$length = $client->validate()->length('Some text', ['twitter', 'linkedin']);
+$length->platforms[0]->length;          // in $length->platforms[0]->unit, limit is null when unbounded
+
+$media = $client->validate()->media('https://yourbrand.com/launch.png');
+$media->ok;                             // 200 even when a check fails; read $media->issues
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.

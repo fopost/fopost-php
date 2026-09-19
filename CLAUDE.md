@@ -63,6 +63,7 @@ src/
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php
+    PostValidation.php LengthValidation.php MediaValidation.php (+ per-platform rows, ValidationSignal)
   Exception/
     FopostException.php ErrorFactory.php + one subclass per status
 ```
@@ -83,7 +84,7 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
 - `PostsResource::iterate()` / `iteratePages()` are generators that page through the list
   endpoint; `Page` is `IteratorAggregate + Countable + ArrayAccess` and read-only.
 
-**Resources wired today:** `posts`, `accounts`, `workspaces`, `labels`, `ai`, `inbox`, `ads`.
+**Resources wired today:** `posts`, `accounts`, `workspaces`, `labels`, `ai`, `inbox`, `ads`, `validate`.
 There is no `communities`, `webhooks`, `analytics`, `automations`, or `media` resource here — reach
 those through the escape hatch `Client::request()` until one is added.
 
