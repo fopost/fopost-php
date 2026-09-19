@@ -12,6 +12,7 @@ use Fopost\Sdk\Resource\AiResource;
 use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\PostsResource;
+use Fopost\Sdk\Resource\ValidateResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
 
@@ -38,6 +39,7 @@ final class Client
     private readonly AiResource $ai;
     private readonly InboxResource $inbox;
     private readonly AdsResource $ads;
+    private readonly ValidateResource $validate;
 
     public function __construct(
         ?string $apiKey = null,
@@ -62,6 +64,7 @@ final class Client
         $this->ai = new AiResource($this->http);
         $this->inbox = new InboxResource($this->http);
         $this->ads = new AdsResource($this->http);
+        $this->validate = new ValidateResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -97,6 +100,11 @@ final class Client
     public function ads(): AdsResource
     {
         return $this->ads;
+    }
+
+    public function validate(): ValidateResource
+    {
+        return $this->validate;
     }
 
     public function baseUrl(): string
