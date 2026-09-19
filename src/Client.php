@@ -12,6 +12,7 @@ use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AiResource;
 use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\LabelsResource;
+use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\ValidateResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
@@ -41,6 +42,7 @@ final class Client
     private readonly AiResource $ai;
     private readonly InboxResource $inbox;
     private readonly AdsResource $ads;
+    private readonly MediaResource $media;
     private readonly ValidateResource $validate;
 
     public function __construct(
@@ -67,6 +69,7 @@ final class Client
         $this->ai = new AiResource($this->http);
         $this->inbox = new InboxResource($this->http);
         $this->ads = new AdsResource($this->http);
+        $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
     }
 
@@ -108,6 +111,11 @@ final class Client
     public function ads(): AdsResource
     {
         return $this->ads;
+    }
+
+    public function media(): MediaResource
+    {
+        return $this->media;
     }
 
     public function validate(): ValidateResource
