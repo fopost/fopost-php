@@ -91,6 +91,17 @@ final class PostsTest extends TestCase
         $this->assertSame('p_1', $post->id);
     }
 
+    public function testCreateSendsTheAccountGroupId(): void
+    {
+        $this->transport->push(201, ['data' => ['id' => 'p_1', 'status' => 'draft']]);
+
+        $this->client()->posts()->create(workspaceId: 'w_1', content: 'Hi', accountGroupId: 'g_1');
+
+        $body = $this->transport->lastJson();
+        $this->assertSame('g_1', $body['account_group_id']);
+        $this->assertSame([], $body['accounts']);
+    }
+
     public function testCreateSerialisesADateTimeSchedule(): void
     {
         $this->transport->push(200, ['data' => ['id' => 'p_1', 'status' => 'scheduled']]);

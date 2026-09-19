@@ -107,7 +107,8 @@ final class PostsResource extends Resource
      * Create a draft or a scheduled post.
      *
      * $status is draft or scheduled; a scheduled post needs $scheduleAt. To
-     * send a post out now, create it and call publish().
+     * send a post out now, create it and call publish(). $accountGroupId adds
+     * that group's accounts to $accounts, so $accounts may be left empty.
      *
      * @param string|array<int, mixed>|ContentBlock $content
      * @param array<int, string|array<string, mixed>|SocialAccount> $accounts
@@ -127,6 +128,7 @@ final class PostsResource extends Resource
         ?string $contentType = null,
         ?array $settings = null,
         array $extra = [],
+        ?string $accountGroupId = null,
     ): Post {
         $body = [
             'workspace_id' => $workspaceId,
@@ -136,6 +138,7 @@ final class PostsResource extends Resource
         ];
 
         $optional = self::compact([
+            'account_group_id' => $accountGroupId,
             'schedule_at' => self::iso($scheduleAt),
             'labels' => $labels !== null ? array_values($labels) : null,
             'title' => $title,
