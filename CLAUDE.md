@@ -61,6 +61,7 @@ src/
     Model.php           base: reads both wire casings, keeps the untouched payload on ->raw
     Page.php PageMeta.php Post.php SocialAccount.php Workspace.php Label.php ...
     AccountGroup.php AccountRename.php AccountMove.php
+    TelegramConnectCode.php TelegramConnectStatus.php TelegramBotCommand.php TelegramBotCommands.php
     Inbox*.php (item, thread, conversation, account, platform, approval, reply, refresh and start-conversation results)
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
