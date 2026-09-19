@@ -154,6 +154,28 @@ final class HttpClient
         return $this->request('DELETE', $path, $json);
     }
 
+    /**
+     * Send a request to an arbitrary URL with only the given headers: no API
+     * key, no JSON, no retry. Used for presigned uploads to storage.
+     *
+     * @param array<string, string> $headers
+     */
+    public function sendRaw(string $method, string $url, array $headers, ?string $body): Response
+    {
+        $response = $this->transport->send($method, $url, $headers, $body);
+        if (!$response->isSuccess()) {
+            $decoded = json_decode($response->body, true);
+
+            throw ErrorFactory::fromResponse(
+                $response->status,
+                json_last_error() === JSON_ERROR_NONE ? $decoded : $response->body,
+                self::retryAfterSeconds($response),
+            );
+        }
+
+        return $response;
+    }
+
     private function decode(Response $response): mixed
     {
         $body = null;
