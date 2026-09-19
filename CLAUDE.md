@@ -178,24 +178,19 @@ There is no build step — the package ships source. CI (`.github/workflows/ci.y
 
 ## Releasing
 
-**`fopost/sdk` is NOT yet on Packagist, and this repo has no `.github/workflows/release.yml`.**
-Composer publishing is pull-based, so no publish workflow or registry token is strictly needed —
-Packagist reads tags off the repo.
+**`fopost/sdk` is on Packagist** (0.2.0 at the time of writing). Composer publishing is
+pull-based, so no publish step or registry token is needed — Packagist reads tags off the repo
+through its GitHub webhook.
 
-First publish requires, in order:
-
-1. A Packagist account with rights to the `fopost` vendor namespace.
-2. Submitting `https://github.com/fopost/fopost-php` on Packagist, which claims `fopost/sdk`.
-3. Connecting the GitHub integration (or the repo webhook) so Packagist refreshes on push —
-   without it, every new tag has to be updated by hand.
-4. Tagging `v0.1.0` on `main`. Packagist derives the version from the tag; `composer.json` must
-   stay version-less.
+Releasing is a tag: push `v<version>` on `main`. Packagist derives the version from the tag, so
+`composer.json` stays version-less. `.github/workflows/release.yml` runs on the tag: it validates
+`composer.json`, runs PHPUnit and PHP_CodeSniffer, then creates the GitHub Release.
 
 Before tagging, bump `Fopost\Sdk\Client::VERSION` in the same commit as the tag's target — it is
 the only version constant in the source and nothing verifies it automatically.
 
 This repo also has **no `CHANGELOG.md` and no `examples/` directory**, which the sibling SDKs
-carry. Add both before the first release rather than after.
+carry. Add both before the next release.
 
 ## Git
 
