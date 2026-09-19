@@ -10,7 +10,7 @@ exception per error status. PSR-4 autoload root `Fopost\Sdk\` → `src/`.
 
 - **PHP >= 8.1.** Extensions `ext-curl` and `ext-json` are the only runtime requirements —
   there are no Composer runtime dependencies, and none may be added.
-- Version `0.2.0`, declared in `Fopost\Sdk\Client::VERSION`. `composer.json` carries no
+- Version `0.3.0`, declared in `Fopost\Sdk\Client::VERSION`. `composer.json` carries no
   `version` key (Packagist reads the git tag).
 
 ## Downstream Packages
@@ -61,7 +61,7 @@ src/
     Model.php           base: reads both wire casings, keeps the untouched payload on ->raw
     Page.php PageMeta.php Post.php SocialAccount.php Workspace.php Label.php ...
     AccountGroup.php AccountRename.php AccountMove.php
-    Inbox*.php (item, thread, conversation, account, platform, approval, reply and refresh results)
+    Inbox*.php (item, thread, conversation, account, platform, approval, reply, refresh and start-conversation results)
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php

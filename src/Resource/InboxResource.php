@@ -13,6 +13,7 @@ use Fopost\Sdk\Model\InboxItem;
 use Fopost\Sdk\Model\InboxPlatform;
 use Fopost\Sdk\Model\InboxRefreshResult;
 use Fopost\Sdk\Model\InboxReplyResult;
+use Fopost\Sdk\Model\InboxStartConversationResult;
 use Fopost\Sdk\Model\InboxThread;
 use Fopost\Sdk\Model\Page;
 
@@ -184,11 +185,37 @@ final class InboxResource extends Resource
         return InboxItem::fromArray(self::unwrap($this->http->request('PATCH', "/inbox/{$itemId}", $body)));
     }
 
-    /** Send the reply on the platform as the connected account. */
-    public function reply(string $itemId, string $text): InboxReplyResult
+    /** Edit our own comment on the platform, where canEdit is true. Needs the `publish` scope. */
+    public function editComment(string $itemId, string $text): InboxItem
     {
+        return InboxItem::fromArray(
+            self::unwrap($this->http->request('PATCH', "/inbox/{$itemId}", ['text' => $text])),
+        );
+    }
+
+    /**
+     * Send the reply on the platform as the connected account.
+     *
+     * $text may be null when $mediaIds is given. $mediaIds and $quickReplies apply to DMs
+     * and also need the `publish` scope.
+     *
+     * @param array<int, string>|null $mediaIds
+     * @param array<int, string>|null $quickReplies
+     */
+    public function reply(
+        string $itemId,
+        ?string $text = null,
+        ?array $mediaIds = null,
+        ?array $quickReplies = null,
+    ): InboxReplyResult {
+        $body = self::compact([
+            'text' => $text,
+            'media_ids' => $mediaIds,
+            'quick_replies' => $quickReplies,
+        ]);
+
         return InboxReplyResult::fromArray(
-            self::unwrap($this->http->post("/inbox/{$itemId}/reply", ['text' => $text])),
+            self::unwrap($this->http->post("/inbox/{$itemId}/reply", $body)),
         );
     }
 
@@ -202,10 +229,77 @@ final class InboxResource extends Resource
         return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unhide")));
     }
 
-    /** Delete the comment on the platform. */
+    /** Delete the comment on the platform, including our own reply (which needs the `publish` scope). */
     public function delete(string $itemId): void
     {
         $this->http->delete("/inbox/{$itemId}");
+    }
+
+    /** Like, upvote or favourite the item, where canLike is true. Needs the `publish` scope. */
+    public function like(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/like")));
+    }
+
+    public function unlike(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unlike")));
+    }
+
+    /** Pin our own comment, where canPin is true. Needs the `publish` scope. */
+    public function pin(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/pin")));
+    }
+
+    public function unpin(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unpin")));
+    }
+
+    /** React to a message with an emoji, or null to remove ours. Needs the `publish` scope. */
+    public function react(string $itemId, ?string $reaction): InboxItem
+    {
+        return InboxItem::fromArray(
+            self::unwrap($this->http->post("/inbox/{$itemId}/react", ['reaction' => $reaction])),
+        );
+    }
+
+    /**
+     * Open a DM to $handle from $accountId, or privately answer the inbox comment $commentId.
+     * Needs the `publish` scope.
+     *
+     * @param array<int, string>|null $mediaIds
+     */
+    public function startConversation(
+        string $text,
+        ?string $accountId = null,
+        ?string $handle = null,
+        ?string $commentId = null,
+        ?array $mediaIds = null,
+    ): InboxStartConversationResult {
+        $body = self::compact([
+            'account_id' => $accountId,
+            'handle' => $handle,
+            'comment_id' => $commentId,
+            'text' => $text,
+            'media_ids' => $mediaIds,
+        ]);
+
+        return InboxStartConversationResult::fromArray(
+            self::unwrap($this->http->post('/inbox/conversations', $body)),
+        );
+    }
+
+    /** Show or clear the typing indicator in a DM thread. Needs the `publish` scope. */
+    public function setTyping(string $conversationId, string $accountId, bool $on = true): bool
+    {
+        $result = self::unwrap($this->http->post(
+            "/inbox/conversations/{$conversationId}/typing",
+            ['account_id' => $accountId, 'on' => $on],
+        ));
+
+        return is_array($result) && ($result['typing'] ?? false) === true;
     }
 
     /**

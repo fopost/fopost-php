@@ -223,6 +223,88 @@ final class InboxTest extends TestCase
         $this->assertSame('https://api.fopost.com/v1/inbox/i_1', $this->transport->last()['url']);
     }
 
+    public function testLikePinReactAndEditReturnTheItem(): void
+    {
+        $acted = self::item([
+            'liked' => true,
+            'pinned' => true,
+            'reaction' => '❤️',
+            'editedAt' => '2026-09-19T10:00:00Z',
+            'canLike' => true,
+            'canPin' => true,
+            'canEdit' => true,
+            'canReact' => true,
+            'canSendMedia' => false,
+            'canQuickReply' => false,
+            'canPrivateReply' => true,
+        ]);
+
+        foreach (['like', 'unlike', 'pin', 'unpin'] as $action) {
+            $this->transport->push(200, ['data' => $acted]);
+            $item = $this->client()->inbox()->{$action}('i_1');
+            $this->assertSame('POST', $this->transport->last()['method']);
+            $this->assertSame("https://api.fopost.com/v1/inbox/i_1/{$action}", $this->transport->last()['url']);
+            $this->assertTrue($item->liked);
+            $this->assertTrue($item->pinned);
+        }
+        $this->assertTrue($item->canPrivateReply);
+        $this->assertFalse($item->canSendMedia);
+        $this->assertSame('2026-09-19', $item->editedAt?->format('Y-m-d'));
+
+        $this->transport->push(200, ['data' => $acted]);
+        $this->assertSame('❤️', $this->client()->inbox()->react('i_1', '❤️')->reaction);
+        $this->assertSame('https://api.fopost.com/v1/inbox/i_1/react', $this->transport->last()['url']);
+        $this->assertSame(['reaction' => '❤️'], $this->transport->lastJson());
+
+        $this->transport->push(200, ['data' => self::item()]);
+        $this->client()->inbox()->react('i_1', null);
+        $this->assertSame(['reaction' => null], $this->transport->lastJson());
+
+        $this->transport->push(200, ['data' => $acted]);
+        $this->assertTrue($this->client()->inbox()->editComment('i_1', 'Fixed typo')->canEdit);
+        $this->assertSame('PATCH', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/inbox/i_1', $this->transport->last()['url']);
+        $this->assertSame(['text' => 'Fixed typo'], $this->transport->lastJson());
+    }
+
+    public function testReplyCarriesMediaAndQuickReplies(): void
+    {
+        $this->transport->push(200, ['data' => ['item' => self::item(), 'reply' => []]]);
+
+        $this->client()->inbox()->reply('i_1', mediaIds: ['med_1'], quickReplies: ['Yes', 'No']);
+
+        $this->assertSame(
+            ['media_ids' => ['med_1'], 'quick_replies' => ['Yes', 'No']],
+            $this->transport->lastJson(),
+        );
+    }
+
+    public function testStartConversationTypingAndTheStartFlag(): void
+    {
+        $this->transport->push(201, ['data' => ['conversationId' => 'c_1', 'item' => self::item(['type' => 'dm'])]]);
+
+        $started = $this->client()->inbox()->startConversation('Hi', accountId: 'acc_1', handle: 'sam');
+
+        $this->assertSame('https://api.fopost.com/v1/inbox/conversations', $this->transport->last()['url']);
+        $this->assertSame(['account_id' => 'acc_1', 'handle' => 'sam', 'text' => 'Hi'], $this->transport->lastJson());
+        $this->assertSame('c_1', $started->conversationId);
+        $this->assertSame('dm', $started->item?->type);
+
+        $this->transport->push(201, ['data' => ['conversationId' => null, 'item' => null]]);
+        $started = $this->client()->inbox()->startConversation('Sent you the details', commentId: 'i_1');
+        $this->assertSame(['comment_id' => 'i_1', 'text' => 'Sent you the details'], $this->transport->lastJson());
+        $this->assertNull($started->conversationId);
+        $this->assertNull($started->item);
+
+        $this->transport->push(200, ['data' => ['typing' => false]]);
+        $this->assertFalse($this->client()->inbox()->setTyping('c_1', 'acc_1', false));
+        $this->assertSame('https://api.fopost.com/v1/inbox/conversations/c_1/typing', $this->transport->last()['url']);
+        $this->assertSame(['account_id' => 'acc_1', 'on' => false], $this->transport->lastJson());
+
+        $this->transport->push(200, ['data' => [['id' => 'acc_1', 'platform' => 'x', 'canStartConversation' => true]]]);
+        $this->assertTrue($this->client()->inbox()->accounts()[0]->canStartConversation);
+    }
+
     public function testApprovalsUseIntegerIdsAndAnOptionalText(): void
     {
         $this->transport->push(200, ['data' => [[
