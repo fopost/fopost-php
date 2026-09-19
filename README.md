@@ -128,6 +128,12 @@ $client->accounts()->setTelegramBotCommands($status->accountId, [
 ]);
 $menu = $client->accounts()->getTelegramBotCommands($status->accountId);
 $client->accounts()->deleteTelegramBotCommands($status->accountId);
+
+// Slack: channels, members (a member id is the DM handle for inbox()->startConversation), posting identity.
+$channels = $client->accounts()->listSlackChannels('acc_1');
+$members = $client->accounts()->listSlackMembers('acc_1');
+$identity = $client->accounts()->getSlackIdentity('acc_1');
+$client->accounts()->updateSlackIdentity('acc_1', username: 'Launch Bot', iconEmoji: ':rocket:');
 ```
 
 ## Account groups
