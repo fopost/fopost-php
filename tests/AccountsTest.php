@@ -194,4 +194,57 @@ final class AccountsTest extends TestCase
         $this->assertSame($url, $this->transport->last()['url']);
         $this->assertSame([], $cleared->commands);
     }
+
+    public function testSlackChannelsAndMembers(): void
+    {
+        $this->transport->push(200, ['data' => [
+            ['id' => 'C1', 'name' => 'general', 'is_private' => false, 'is_member' => true, 'is_current' => true],
+        ]]);
+        $channels = $this->client()->accounts()->listSlackChannels('a_1');
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/slack/channels', $this->transport->last()['url']);
+        $this->assertSame('C1', $channels[0]->id);
+        $this->assertTrue($channels[0]->isCurrent);
+
+        $this->transport->push(200, ['data' => [
+            ['id' => 'U1', 'name' => 'sam', 'real_name' => 'Sam Rivera', 'display_name' => null, 'is_bot' => false],
+        ]]);
+        $members = $this->client()->accounts()->listSlackMembers('a_1');
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/slack/members', $this->transport->last()['url']);
+        $this->assertSame('U1', $members[0]->id);
+        $this->assertSame('Sam Rivera', $members[0]->realName);
+        $this->assertNull($members[0]->displayName);
+    }
+
+    public function testSlackIdentityGetAndPartialUpdate(): void
+    {
+        $url = 'https://api.fopost.com/v1/accounts/a_1/slack/identity';
+        $identity = ['username' => 'Launch Bot', 'icon_url' => null, 'icon_emoji' => ':rocket:'];
+
+        $this->transport->push(200, ['data' => $identity]);
+        $read = $this->client()->accounts()->getSlackIdentity('a_1');
+        $this->assertSame('GET', $this->transport->last()['method']);
+        $this->assertSame($url, $this->transport->last()['url']);
+        $this->assertSame(':rocket:', $read->iconEmoji);
+
+        $this->transport->push(200, ['data' => $identity]);
+        $updated = $this->client()->accounts()->updateSlackIdentity('a_1', username: 'Launch Bot', iconUrl: null);
+        $this->assertSame('PATCH', $this->transport->last()['method']);
+        $this->assertSame($url, $this->transport->last()['url']);
+        // Omitted fields stay off the wire; null is sent to clear.
+        $this->assertSame(['username' => 'Launch Bot', 'icon_url' => null], $this->transport->lastJson());
+        $this->assertSame('Launch Bot', $updated->username);
+    }
+
+    public function testSlackWebhookConnectionIsAnApiException(): void
+    {
+        $this->transport->push(409, ['error' => 'webhook_connection', 'message' => 'Reconnect with the Slack app']);
+
+        try {
+            $this->client()->accounts()->listSlackChannels('a_1');
+            $this->fail('Expected an ApiException');
+        } catch (ApiException $e) {
+            $this->assertSame(409, $e->getStatus());
+            $this->assertSame('webhook_connection', $e->errorCode);
+        }
+    }
 }

@@ -6,11 +6,15 @@ namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\AccountMove;
 use Fopost\Sdk\Model\AccountRename;
+use Fopost\Sdk\Model\SlackChannel;
+use Fopost\Sdk\Model\SlackIdentity;
+use Fopost\Sdk\Model\SlackMember;
 use Fopost\Sdk\Model\SocialAccount;
 use Fopost\Sdk\Model\TelegramBotCommand;
 use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
+use Fopost\Sdk\Undefined;
 
 /** $client->accounts(): the social accounts connected to a workspace. */
 final class AccountsResource extends Resource
@@ -119,6 +123,50 @@ final class AccountsResource extends Resource
     {
         return TelegramBotCommands::fromArray(self::unwrap(
             $this->http->delete("/accounts/{$accountId}/telegram/commands"),
+        ));
+    }
+
+    /**
+     * Channels the Slack app can post to in the connected workspace.
+     *
+     * @return array<int, SlackChannel>
+     */
+    public function listSlackChannels(string $accountId): array
+    {
+        return SlackChannel::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/slack/channels")));
+    }
+
+    /**
+     * People in the connected Slack workspace; a member's id is the handle for starting a DM.
+     *
+     * @return array<int, SlackMember>
+     */
+    public function listSlackMembers(string $accountId): array
+    {
+        return SlackMember::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/slack/members")));
+    }
+
+    public function getSlackIdentity(string $accountId): SlackIdentity
+    {
+        return SlackIdentity::fromArray(self::unwrap($this->http->get("/accounts/{$accountId}/slack/identity")));
+    }
+
+    /** Set the posting name and icon: omitted keeps a field, null clears it. Pass one icon, not both. */
+    public function updateSlackIdentity(
+        string $accountId,
+        string|null|Undefined $username = Undefined::Value,
+        string|null|Undefined $iconUrl = Undefined::Value,
+        string|null|Undefined $iconEmoji = Undefined::Value,
+    ): SlackIdentity {
+        $body = [];
+        foreach (['username' => $username, 'icon_url' => $iconUrl, 'icon_emoji' => $iconEmoji] as $key => $value) {
+            if (!Undefined::is($value)) {
+                $body[$key] = $value;
+            }
+        }
+
+        return SlackIdentity::fromArray(self::unwrap(
+            $this->http->request('PATCH', "/accounts/{$accountId}/slack/identity", $body === [] ? (object) [] : $body),
         ));
     }
 }
