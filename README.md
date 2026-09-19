@@ -257,6 +257,21 @@ $leads = $client->ads()->leads($formId, $connectionId, '555');
 $more = $client->ads()->leads($formId, $connectionId, '555', after: $leads->nextCursor);
 ```
 
+## Media
+
+Upload a file straight to storage with a presigned URL, then register it in the media library. Needs the `posts` scope.
+
+```php
+// One call: presign, PUT the bytes, complete.
+$asset = $client->media()->uploadDirect($workspaceId, 'logo.png', 'image/png', file_get_contents('logo.png'));
+echo $asset->id, ' ', $asset->type, ' ', $asset->previewUrl, PHP_EOL;
+
+// Or step by step, when you PUT the bytes yourself.
+$upload = $client->media()->presign($workspaceId, 'clip.mp4', 'video/mp4', filesize('clip.mp4'));
+// PUT the file to $upload->uploadUrl with $upload->headers, no API key, before $upload->expiresAt.
+$asset = $client->media()->complete($upload->uploadId);
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.
