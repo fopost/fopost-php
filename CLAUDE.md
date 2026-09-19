@@ -54,11 +54,12 @@ src/
     Response.php        status + lowercased headers + raw body, pre-decode
   Resource/
     Resource.php        base: unwrap/compact/asArray/iso helpers
-    PostsResource.php AccountsResource.php WorkspacesResource.php LabelsResource.php AiResource.php
-    InboxResource.php AdsResource.php
+    PostsResource.php AccountsResource.php AccountGroupsResource.php WorkspacesResource.php
+    LabelsResource.php AiResource.php InboxResource.php AdsResource.php
   Model/
     Model.php           base: reads both wire casings, keeps the untouched payload on ->raw
     Page.php PageMeta.php Post.php SocialAccount.php Workspace.php Label.php ...
+    AccountGroup.php AccountRename.php AccountMove.php
     Inbox*.php (item, thread, conversation, account, platform, approval, reply and refresh results)
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php

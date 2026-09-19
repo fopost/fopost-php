@@ -6,6 +6,7 @@ namespace Fopost\Sdk;
 
 use Fopost\Sdk\Http\HttpClient;
 use Fopost\Sdk\Http\Transport;
+use Fopost\Sdk\Resource\AccountGroupsResource;
 use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AiResource;
@@ -34,6 +35,7 @@ final class Client
     private readonly HttpClient $http;
     private readonly PostsResource $posts;
     private readonly AccountsResource $accounts;
+    private readonly AccountGroupsResource $accountGroups;
     private readonly WorkspacesResource $workspaces;
     private readonly LabelsResource $labels;
     private readonly AiResource $ai;
@@ -59,6 +61,7 @@ final class Client
 
         $this->posts = new PostsResource($this->http);
         $this->accounts = new AccountsResource($this->http);
+        $this->accountGroups = new AccountGroupsResource($this->http);
         $this->workspaces = new WorkspacesResource($this->http);
         $this->labels = new LabelsResource($this->http);
         $this->ai = new AiResource($this->http);
@@ -75,6 +78,11 @@ final class Client
     public function accounts(): AccountsResource
     {
         return $this->accounts;
+    }
+
+    public function accountGroups(): AccountGroupsResource
+    {
+        return $this->accountGroups;
     }
 
     public function workspaces(): WorkspacesResource

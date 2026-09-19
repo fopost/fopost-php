@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Resource;
 
+use Fopost\Sdk\Model\AccountMove;
+use Fopost\Sdk\Model\AccountRename;
 use Fopost\Sdk\Model\SocialAccount;
 
 /** $client->accounts(): the social accounts connected to a workspace. */
@@ -14,11 +16,11 @@ final class AccountsResource extends Resource
      *
      * @return array<int, SocialAccount>
      */
-    public function list(?string $workspaceId = null): array
+    public function list(?string $workspaceId = null, ?string $groupId = null): array
     {
-        // This endpoint reads a camelCase query param; posts and labels use snake.
+        // This endpoint reads a camelCase workspaceId; posts and labels use snake.
         return SocialAccount::listFrom(
-            self::unwrap($this->http->get('/accounts', ['workspaceId' => $workspaceId])),
+            self::unwrap($this->http->get('/accounts', ['workspaceId' => $workspaceId, 'group_id' => $groupId])),
         );
     }
 
@@ -45,5 +47,21 @@ final class AccountsResource extends Resource
     public function health(string $accountId): array
     {
         return self::asArray(self::unwrap($this->http->get("/accounts/{$accountId}/health")));
+    }
+
+    /** Rename the account; null or an empty string restores the platform name. */
+    public function update(string $accountId, ?string $displayName): AccountRename
+    {
+        return AccountRename::fromArray(self::unwrap(
+            $this->http->request('PATCH', "/accounts/{$accountId}", ['display_name' => $displayName]),
+        ));
+    }
+
+    /** Move the account to another workspace the caller owns. */
+    public function move(string $accountId, string $workspaceId): AccountMove
+    {
+        return AccountMove::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/move", ['workspace_id' => $workspaceId]),
+        ));
     }
 }

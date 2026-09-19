@@ -21,6 +21,7 @@ final class SocialAccount extends Model
         public readonly ?bool $isPrimary,
         public readonly ?string $healthStatus,
         public readonly ?DateTimeImmutable $lastHealthCheck,
+        public readonly ?string $platformName,
     ) {
         parent::__construct($raw);
     }
@@ -41,6 +42,7 @@ final class SocialAccount extends Model
             self::bool($data, 'is_primary'),
             self::str($data, 'health_status'),
             self::date($data, 'last_health_check'),
+            self::str($data, 'platform_name'),
         );
     }
 }
