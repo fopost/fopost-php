@@ -112,6 +112,26 @@ $account = $client->accounts()->get('acc_1');
 
 $health = $client->accounts()->health('acc_1');
 $client->accounts()->disconnect('acc_1');
+
+// Rename; null restores the platform name.
+$client->accounts()->update('acc_1', 'Brand HQ');
+$client->accounts()->move('acc_1', $otherWorkspaceId);
+
+$grouped = $client->accounts()->list($workspaceId, groupId: 'grp_1');
+```
+
+## Account groups
+
+```php
+$group = $client->accountGroups()->create($workspaceId, 'Launch', ['acc_1', 'acc_2']);
+$groups = $client->accountGroups()->list($workspaceId);
+
+$client->accountGroups()->update($group->id, 'Launch week');
+$client->accountGroups()->setMembers($group->id, ['acc_1', 'acc_3']);
+$client->accountGroups()->delete($group->id);
+
+// Post to every account in the group.
+$client->posts()->create(workspaceId: $workspaceId, content: 'Hello', accountGroupId: $group->id);
 ```
 
 ## Workspaces
