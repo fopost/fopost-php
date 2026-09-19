@@ -725,6 +725,22 @@ $fake = new class implements Transport {
 $client = new Client('fop_test_key', Client::DEFAULT_BASE_URL, 30.0, 3, $fake);
 ```
 
+## Chatbots and the inbox
+
+The [chat adapter](https://fopost.com/docs/sdks/chat-adapter) turns the FoPost inbox into one send/receive channel for a chatbot
+framework. It ships in the TypeScript and Python SDKs. There is no dedicated adapter here and no
+API change behind it, so the same loop is three pieces with this client:
+
+1. **Verify** the `inbox.message_received` webhook. The payload is ids only, on purpose, so
+   nothing a customer wrote sits in your logs. The [signing scheme](https://fopost.com/docs/webhooks/verification)
+   is HMAC-SHA256 over `{timestamp}.{body}`, refused past a five minute tolerance.
+2. **Read** the item back with `$client->inbox()->list(workspaceId: $workspaceId, type: 'dm', accountId: $accountId)`, filtered to the payload's
+   `accountId` and matched on its `itemId`.
+3. **Answer** with `$client->inbox()->reply($item->id, $text)`, or open a thread with
+   `$client->inbox()->startConversation(...)`.
+
+Reading needs the `inbox` scope; answering needs `publish` as well.
+
 ## Support
 
 Questions and issues: [fopost.com/contact](https://fopost.com/contact) or the [issue tracker](https://github.com/fopost/fopost-php/issues).
