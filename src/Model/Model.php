@@ -116,6 +116,21 @@ abstract class Model implements JsonSerializable
         return null;
     }
 
+    /** Averages and rates come back as floats; ints on the wire still count. */
+    /** @param array<string, mixed> $data */
+    protected static function num(array $data, string $name): ?float
+    {
+        $value = self::field($data, $name);
+        if (is_float($value) || is_int($value)) {
+            return (float) $value;
+        }
+        if (is_string($value) && is_numeric($value)) {
+            return (float) $value;
+        }
+
+        return null;
+    }
+
     /** @param array<string, mixed> $data */
     protected static function bool(array $data, string $name): ?bool
     {

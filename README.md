@@ -414,6 +414,44 @@ $media = $client->validate()->media('https://yourbrand.com/launch.png');
 $media->ok;                             // 200 even when a check fails; read $media->issues
 ```
 
+## Analytics
+
+```php
+// How long a post keeps earning, from the repeated readings of each post
+$decay = $client->analytics()->decay(days: 30);
+echo $decay->halfLifeBucket; // e.g. "1h_3h"
+
+// Whether posting more earned more
+$cadence = $client->analytics()->frequency(days: 90);
+echo $cadence->best?->label; // e.g. "3-5 a week"
+
+// Every reading held for one post, with what moved between them
+$timeline = $client->analytics()->timeline($post->id);
+
+// Mirror the metrics into your own store, without refetching everything
+$cursor = null;
+do {
+    $page = $client->analytics()->changes(since: $cursor);
+    save($page->changes);
+    $cursor = $page->cursor?->format(DATE_ATOM);
+} while ($page->hasMore && $cursor !== null);
+
+// Refresh one post now instead of waiting for the next collection run
+$client->analytics()->collectPost($post->id);
+
+// Posts on the account that never went out through FoPost
+foreach ($client->analytics()->nativePosts($accounts[0]->id)->items as $native) {
+    echo $native->permalink, ' ', $native->metrics->engagements, PHP_EOL;
+}
+```
+
+A post is addressed by its FoPost id or by its permalink, so a post made by
+hand on the network works the same way:
+
+```php
+$client->analytics()->timeline('https://x.com/acme/status/1');
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.
