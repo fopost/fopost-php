@@ -15,6 +15,7 @@ use Fopost\Sdk\Resource\BlogResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ContactsResource;
 use Fopost\Sdk\Resource\GoogleBusinessResource;
+use Fopost\Sdk\Resource\BlogsResource;
 use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\ActivityResource;
 use Fopost\Sdk\Resource\KnowledgeResource;
@@ -58,6 +59,7 @@ final class Client
 
     private readonly KnowledgeResource $knowledge;
     private readonly AdsResource $ads;
+    private readonly BlogsResource $blogs;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
     private readonly WhatsappResource $whatsapp;
@@ -94,6 +96,7 @@ final class Client
         $this->blog = new BlogResource($this->http);
         $this->knowledge = new KnowledgeResource($this->http);
         $this->ads = new AdsResource($this->http);
+        $this->blogs = new BlogsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
         $this->whatsapp = new WhatsappResource($this->http);
@@ -197,6 +200,11 @@ final class Client
     public function whatsapp(): WhatsappResource
     {
         return $this->whatsapp;
+    }
+
+    public function blogs(): BlogsResource
+    {
+        return $this->blogs;
     }
 
     public function baseUrl(): string
