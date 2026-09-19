@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\AccountMove;
+use Fopost\Sdk\Model\AccountPlatformMetrics;
 use Fopost\Sdk\Model\AccountRename;
 use Fopost\Sdk\Model\DiscordChannel;
 use Fopost\Sdk\Model\DiscordIdentity;
@@ -83,6 +84,23 @@ final class AccountsResource extends Resource
     public function health(string $accountId): array
     {
         return self::asArray(self::unwrap($this->http->get("/accounts/{$accountId}/health")));
+    }
+
+    /**
+     * The numbers only this account's network reports, in its own vocabulary.
+     *
+     * Ad-break earnings, story taps, a retention curve, the search terms behind a
+     * listing — keyed by the platform's own metric names, read from the newest
+     * collected snapshot rather than fetched live. Needs the `analytics` scope.
+     *
+     * A network whose metric access has not been granted yet answers 503
+     * (`platform_metrics_unavailable`) rather than an empty set.
+     */
+    public function platformMetrics(string $accountId): AccountPlatformMetrics
+    {
+        return AccountPlatformMetrics::fromArray(
+            self::unwrap($this->http->get("/accounts/{$accountId}/insights", ['raw' => 'true'])),
+        );
     }
 
     /** Rename the account; null or an empty string restores the platform name. */
