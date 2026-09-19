@@ -118,6 +118,16 @@ $client->accounts()->update('acc_1', 'Brand HQ');
 $client->accounts()->move('acc_1', $otherWorkspaceId);
 
 $grouped = $client->accounts()->list($workspaceId, groupId: 'grp_1');
+
+// Telegram: send $code->command in the chat to connect it, then poll.
+$code = $client->accounts()->createTelegramConnectCode($workspaceId);
+$status = $client->accounts()->getTelegramConnectStatus($code->code);
+
+$client->accounts()->setTelegramBotCommands($status->accountId, [
+    ['command' => 'start', 'description' => 'Start the bot'],
+]);
+$menu = $client->accounts()->getTelegramBotCommands($status->accountId);
+$client->accounts()->deleteTelegramBotCommands($status->accountId);
 ```
 
 ## Account groups
