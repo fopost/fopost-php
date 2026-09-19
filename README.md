@@ -112,6 +112,26 @@ $account = $client->accounts()->get('acc_1');
 
 $health = $client->accounts()->health('acc_1');
 $client->accounts()->disconnect('acc_1');
+
+// Rename; null restores the platform name.
+$client->accounts()->update('acc_1', 'Brand HQ');
+$client->accounts()->move('acc_1', $otherWorkspaceId);
+
+$grouped = $client->accounts()->list($workspaceId, groupId: 'grp_1');
+```
+
+## Account groups
+
+```php
+$group = $client->accountGroups()->create($workspaceId, 'Launch', ['acc_1', 'acc_2']);
+$groups = $client->accountGroups()->list($workspaceId);
+
+$client->accountGroups()->update($group->id, 'Launch week');
+$client->accountGroups()->setMembers($group->id, ['acc_1', 'acc_3']);
+$client->accountGroups()->delete($group->id);
+
+// Post to every account in the group.
+$client->posts()->create(workspaceId: $workspaceId, content: 'Hello', accountGroupId: $group->id);
 ```
 
 ## Workspaces
@@ -270,6 +290,25 @@ echo $asset->id, ' ', $asset->type, ' ', $asset->previewUrl, PHP_EOL;
 $upload = $client->media()->presign($workspaceId, 'clip.mp4', 'video/mp4', filesize('clip.mp4'));
 // PUT the file to $upload->uploadUrl with $upload->headers, no API key, before $upload->expiresAt.
 $asset = $client->media()->complete($upload->uploadId);
+```
+
+## Validate
+
+Check a draft before you schedule it. Nothing is stored; needs the `posts` scope.
+
+```php
+$check = $client->validate()->post(['bluesky', 'linkedin'], 'One draft, many networks', [
+    ['url' => 'https://yourbrand.com/launch.png', 'mime_type' => 'image/png', 'size' => 204800],
+]);
+$check->ready;                          // true only when every platform is ready
+$check->platforms[0]->issues;           // hard blockers
+$check->platforms[0]->signals;          // advisory, never blocks
+
+$length = $client->validate()->length('Some text', ['twitter', 'linkedin']);
+$length->platforms[0]->length;          // in $length->platforms[0]->unit, limit is null when unbounded
+
+$media = $client->validate()->media('https://yourbrand.com/launch.png');
+$media->ok;                             // 200 even when a check fails; read $media->issues
 ```
 
 ## Errors

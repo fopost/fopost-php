@@ -54,15 +54,18 @@ src/
     Response.php        status + lowercased headers + raw body, pre-decode
   Resource/
     Resource.php        base: unwrap/compact/asArray/iso helpers
-    PostsResource.php AccountsResource.php WorkspacesResource.php LabelsResource.php AiResource.php
-    InboxResource.php AdsResource.php MediaResource.php
+    PostsResource.php AccountsResource.php AccountGroupsResource.php WorkspacesResource.php
+    LabelsResource.php AiResource.php InboxResource.php AdsResource.php MediaResource.php
+    ValidateResource.php
   Model/
     Model.php           base: reads both wire casings, keeps the untouched payload on ->raw
     Page.php PageMeta.php Post.php SocialAccount.php Workspace.php Label.php ...
+    AccountGroup.php AccountRename.php AccountMove.php
     Inbox*.php (item, thread, conversation, account, platform, approval, reply and refresh results)
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php
+    PostValidation.php LengthValidation.php MediaValidation.php (+ per-platform rows, ValidationSignal)
   Exception/
     FopostException.php ErrorFactory.php + one subclass per status
 ```
@@ -83,9 +86,10 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
 - `PostsResource::iterate()` / `iteratePages()` are generators that page through the list
   endpoint; `Page` is `IteratorAggregate + Countable + ArrayAccess` and read-only.
 
-**Resources wired today:** `posts`, `accounts`, `workspaces`, `labels`, `ai`, `inbox`, `ads`,
-`media`. There is no `communities`, `webhooks`, `analytics`, or `automations` resource here —
-reach those through the escape hatch `Client::request()` until one is added.
+**Resources wired today:** `posts`, `accounts`, `accountGroups`, `workspaces`, `labels`, `ai`,
+`inbox`, `ads`, `media`, `validate`. There is no `communities`, `webhooks`, `analytics`, or
+`automations` resource here — reach those through the escape hatch `Client::request()` until one
+is added.
 
 - `inbox` (scope `inbox`) covers `/inbox`, `/inbox/posts`, `/inbox/conversations`, `unread-count`,
   `accounts`, `platforms`, `read`, `refresh`, `approvals` (+ `approve`/`reject`, integer ids), and

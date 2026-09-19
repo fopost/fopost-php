@@ -6,6 +6,7 @@ namespace Fopost\Sdk;
 
 use Fopost\Sdk\Http\HttpClient;
 use Fopost\Sdk\Http\Transport;
+use Fopost\Sdk\Resource\AccountGroupsResource;
 use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AiResource;
@@ -13,6 +14,7 @@ use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
+use Fopost\Sdk\Resource\ValidateResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
 
@@ -34,12 +36,14 @@ final class Client
     private readonly HttpClient $http;
     private readonly PostsResource $posts;
     private readonly AccountsResource $accounts;
+    private readonly AccountGroupsResource $accountGroups;
     private readonly WorkspacesResource $workspaces;
     private readonly LabelsResource $labels;
     private readonly AiResource $ai;
     private readonly InboxResource $inbox;
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
+    private readonly ValidateResource $validate;
 
     public function __construct(
         ?string $apiKey = null,
@@ -59,12 +63,14 @@ final class Client
 
         $this->posts = new PostsResource($this->http);
         $this->accounts = new AccountsResource($this->http);
+        $this->accountGroups = new AccountGroupsResource($this->http);
         $this->workspaces = new WorkspacesResource($this->http);
         $this->labels = new LabelsResource($this->http);
         $this->ai = new AiResource($this->http);
         $this->inbox = new InboxResource($this->http);
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
+        $this->validate = new ValidateResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -75,6 +81,11 @@ final class Client
     public function accounts(): AccountsResource
     {
         return $this->accounts;
+    }
+
+    public function accountGroups(): AccountGroupsResource
+    {
+        return $this->accountGroups;
     }
 
     public function workspaces(): WorkspacesResource
@@ -105,6 +116,11 @@ final class Client
     public function media(): MediaResource
     {
         return $this->media;
+    }
+
+    public function validate(): ValidateResource
+    {
+        return $this->validate;
     }
 
     public function baseUrl(): string
