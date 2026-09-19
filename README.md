@@ -287,6 +287,83 @@ $leads = $client->ads()->leads($formId, $connectionId, '555');
 $more = $client->ads()->leads($formId, $connectionId, '555', after: $leads->nextCursor);
 ```
 
+### Campaigns, ad sets and ads
+
+These are addressed by Meta's own ids plus the `connectionId`, and read live, never stored. Creating, updating, deleting or duplicating any of them, and `bulkSetStatus()`, also need `publish`. New objects start paused unless `paused: false` is passed.
+
+```php
+$tree = $client->ads()->accountTree('act_123', $connectionId);   // campaigns → adSets → ads
+
+$campaign = $client->ads()->createCampaign($workspaceId, $connectionId, 'act_123', 'Launch', 'traffic');
+$adSet = $client->ads()->createAdSet(
+    workspaceId: $workspaceId,
+    connectionId: $connectionId,
+    campaignId: $campaign->id,
+    pageId: '555',
+    name: 'US adults',
+    goal: 'traffic',
+    budget: ['minor' => 2500, 'type' => 'daily'],
+    targeting: ['countries' => ['US'], 'ageMin' => 18, 'ageMax' => 65, 'gender' => 'all'],
+);
+$creative = $client->ads()->createCreative(
+    workspaceId: $workspaceId,
+    connectionId: $connectionId,
+    adAccountId: 'act_123',
+    pageId: '555',
+    name: 'Hero',
+    format: 'image',
+    text: 'Meet the new plan',
+    destinationUrl: 'https://yourbrand.com/plans',
+    urlTags: 'utm_source=meta&utm_medium=paid',
+    mediaUrl: $asset->url,
+);
+$ad = $client->ads()->createNetworkAd($workspaceId, $connectionId, $adSet->id, $creative->id, 'Hero ad');
+
+$client->ads()->updateAdSet($adSet->id, $workspaceId, $connectionId, budgetMinor: 5000);
+$copyId = $client->ads()->duplicateCampaign($campaign->id, $workspaceId, $connectionId);
+$client->ads()->bulkSetStatus($workspaceId, $connectionId, 'active', [
+    ['id' => $campaign->id, 'level' => 'campaign'],
+    ['id' => $ad->id, 'level' => 'ad'],
+]);
+$client->ads()->deleteCampaign($copyId, $workspaceId, $connectionId);
+// also: campaign(), adSet(), networkAd(), updateCampaign(), updateNetworkAd(), deleteAdSet(),
+// deleteNetworkAd(), duplicateAdSet(), duplicateNetworkAd(), creatives(), creative(), deleteCreative()
+```
+
+### Audiences, reach and insights
+
+```php
+$client->ads()->audience($audienceId, $connectionId);
+$client->ads()->updateAudience($audienceId, $workspaceId, $connectionId, name: 'Customers 2026');
+$added = $client->ads()->addAudienceUsers($audienceId, $workspaceId, $connectionId, $emails);   // hashed by the API
+$client->ads()->deleteAudience($audienceId, $workspaceId, $connectionId);
+
+$reach = $client->ads()->estimateReach($workspaceId, $connectionId, 'act_123', '555', [
+    'countries' => ['US'], 'ageMin' => 18, 'ageMax' => 65, 'gender' => 'all',
+]);
+
+// any campaign, ad set or ad by Meta id; breakdown is age, gender, placement or country
+$report = $client->ads()->insights($connectionId, $campaign->id, '2026-09-01', '2026-09-07', breakdown: 'age', daily: true);
+$report = $client->ads()->adInsights($boost->id, $workspaceId, '2026-09-01', '2026-09-07');   // a FoPost ad id
+```
+
+### Lead forms and the leads feed
+
+```php
+$form = $client->ads()->leadForm($formId, $connectionId, '555');
+$client->ads()->archiveLeadForm($formId, $workspaceId, $connectionId, '555');
+
+// subscribe a Page and new leads are stored as they arrive
+$backfilled = $client->ads()->subscribeLeadPage($workspaceId, $connectionId, '555');
+$client->ads()->leadPages($workspaceId);
+
+$page = $client->ads()->leadsFeed($workspaceId, formId: $formId, limit: 50);
+while ($page->nextCursor !== null) {
+    $page = $client->ads()->leadsFeed($workspaceId, formId: $formId, cursor: $page->nextCursor, limit: 50);
+}
+$client->ads()->unsubscribeLeadPage('555', $workspaceId, $connectionId);
+```
+
 ## Media
 
 Upload a file straight to storage with a presigned URL, then register it in the media library. Needs the `posts` scope.
