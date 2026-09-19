@@ -7,7 +7,9 @@ namespace Fopost\Sdk;
 use Fopost\Sdk\Http\HttpClient;
 use Fopost\Sdk\Http\Transport;
 use Fopost\Sdk\Resource\AccountsResource;
+use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AiResource;
+use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
@@ -25,7 +27,7 @@ use InvalidArgumentException;
  */
 final class Client
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.2.0';
     public const DEFAULT_BASE_URL = HttpClient::DEFAULT_BASE_URL;
 
     private readonly HttpClient $http;
@@ -34,6 +36,8 @@ final class Client
     private readonly WorkspacesResource $workspaces;
     private readonly LabelsResource $labels;
     private readonly AiResource $ai;
+    private readonly InboxResource $inbox;
+    private readonly AdsResource $ads;
 
     public function __construct(
         ?string $apiKey = null,
@@ -56,6 +60,8 @@ final class Client
         $this->workspaces = new WorkspacesResource($this->http);
         $this->labels = new LabelsResource($this->http);
         $this->ai = new AiResource($this->http);
+        $this->inbox = new InboxResource($this->http);
+        $this->ads = new AdsResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -81,6 +87,16 @@ final class Client
     public function ai(): AiResource
     {
         return $this->ai;
+    }
+
+    public function inbox(): InboxResource
+    {
+        return $this->inbox;
+    }
+
+    public function ads(): AdsResource
+    {
+        return $this->ads;
     }
 
     public function baseUrl(): string

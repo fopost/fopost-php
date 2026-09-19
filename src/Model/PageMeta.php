@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Model;
 
-/** The pagination block a list endpoint returns beside its data. */
+/** The pagination block a list endpoint returns beside its data. Inbox lists send `page` for the current page. */
 final class PageMeta extends Model
 {
     private function __construct(
@@ -25,7 +25,7 @@ final class PageMeta extends Model
 
         return new self(
             $data,
-            self::int($data, 'current_page'),
+            self::int($data, 'current_page') ?? self::int($data, 'page'),
             self::int($data, 'per_page'),
             self::int($data, 'total'),
             self::int($data, 'last_page'),

@@ -155,6 +155,108 @@ foreach ($rewrite->results as $variant) {
 $repurposed = $client->ai()->repurposeUrl('https://example.com/blog/launch', ['linkedin', 'threads']);
 ```
 
+## Inbox
+
+Comments, mentions and direct messages on connected accounts. Needs the `inbox` scope.
+
+```php
+// One page of items, newest first. Filters are optional.
+$page = $client->inbox()->list(workspaceId: $workspaceId, type: 'comment', state: 'unread');
+foreach ($page as $item) {
+    echo $item->platform, ' ', $item->authorHandle, ': ', $item->text, PHP_EOL;
+}
+echo $page->meta->total;
+
+$threads = $client->inbox()->threads(workspaceId: $workspaceId);              // one row per post
+$mentions = $client->inbox()->threads(workspaceId: $workspaceId, kind: 'mentions');
+$conversations = $client->inbox()->conversations(workspaceId: $workspaceId); // one row per DM thread
+
+$client->inbox()->unreadCount($workspaceId);
+$client->inbox()->accounts($workspaceId);   // inboxSupported / dmSupported per account
+$client->inbox()->platforms();
+
+$client->inbox()->refresh($workspaceId);
+$client->inbox()->markThreadRead($workspaceId, $accountId, postExternalId: 'ext_9');
+
+$client->inbox()->update($item->id, 'snoozed', new DateTimeImmutable('+1 day'));
+$reply = $client->inbox()->reply($item->id, 'Thanks for the kind words');
+echo $reply->externalUrl;
+$client->inbox()->hide($item->id);
+$client->inbox()->unhide($item->id);
+$client->inbox()->delete($item->id);
+
+// Replies an automation or the agent drafted, waiting for a person.
+foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
+    $client->inbox()->approveReply($approval->id);          // or approveReply($id, 'edited text')
+}
+$client->inbox()->rejectReply($approval->id);
+```
+
+## Ads
+
+Meta ads, audiences and lead forms. Needs the `ads` scope; `boost()`, `create()`, `setStatus()` and `delete()` spend money and also need `publish`. A boost or ad starts paused unless `paused: false` is passed.
+
+```php
+$ads = $client->ads()->list($workspaceId);
+$client->ads()->external($workspaceId);      // ads made outside FoPost, read live
+$client->ads()->boostable($workspaceId);
+$client->ads()->connections($workspaceId);
+$client->ads()->sources($workspaceId);       // ad accounts and Pages per connection
+
+$url = $client->ads()->authorizeMeta($workspaceId);   // finish the login in a browser
+$client->ads()->deleteConnection($connectionId, $workspaceId);
+
+$boost = $client->ads()->boost(
+    workspaceId: $workspaceId,
+    connectionId: $connectionId,
+    adAccountId: 'act_123',
+    postId: $post->id,
+    accountId: $accountId,
+    name: 'Launch week boost',
+    goal: 'engagement',
+    budget: ['minor' => 2500, 'type' => 'daily'],
+    targeting: ['countries' => ['US'], 'ageMin' => 18],
+);
+
+$ad = $client->ads()->create(
+    workspaceId: $workspaceId,
+    connectionId: $connectionId,
+    adAccountId: 'act_123',
+    pageId: '555',
+    name: 'Spring plans',
+    goal: 'traffic',
+    budget: ['minor' => 10000, 'type' => 'lifetime', 'endAt' => '2026-10-01T00:00:00Z'],
+    targeting: ['countries' => ['US']],
+    text: 'Meet the new plan',
+    destinationUrl: 'https://yourbrand.com/plans',
+);
+
+$client->ads()->refresh($ad->id, $workspaceId);
+$client->ads()->setStatus($ad->id, $workspaceId, 'active');
+$client->ads()->delete($ad->id, $workspaceId);
+
+$audiences = $client->ads()->audiences($connectionId, 'act_123');
+$client->ads()->createAudience($workspaceId, $connectionId, 'act_123', 'Lookalike', [
+    'subtype' => 'LOOKALIKE',
+    'originAudienceId' => $audiences->audiences[0]->id,
+    'country' => 'US',
+]);
+$client->ads()->searchTargeting($connectionId, 'interest', 'coffee');
+
+$client->ads()->leadForms($workspaceId);
+$formId = $client->ads()->createLeadForm(
+    workspaceId: $workspaceId,
+    connectionId: $connectionId,
+    pageId: '555',
+    name: 'Newsletter',
+    questions: ['EMAIL', 'FULL_NAME'],
+    privacyPolicyUrl: 'https://yourbrand.com/privacy',
+    thankYouMessage: 'Thanks, talk soon',
+);
+$leads = $client->ads()->leads($formId, $connectionId, '555');
+$more = $client->ads()->leads($formId, $connectionId, '555', after: $leads->nextCursor);
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.
