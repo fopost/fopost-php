@@ -6,6 +6,10 @@ namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\AccountMove;
 use Fopost\Sdk\Model\AccountRename;
+use Fopost\Sdk\Model\RedditDefaultSubreddit;
+use Fopost\Sdk\Model\RedditFlairs;
+use Fopost\Sdk\Model\RedditSubreddit;
+use Fopost\Sdk\Model\RedditSubredditRules;
 use Fopost\Sdk\Model\SlackChannel;
 use Fopost\Sdk\Model\SlackIdentity;
 use Fopost\Sdk\Model\SlackMember;
@@ -123,6 +127,42 @@ final class AccountsResource extends Resource
     {
         return TelegramBotCommands::fromArray(self::unwrap(
             $this->http->delete("/accounts/{$accountId}/telegram/commands"),
+        ));
+    }
+
+    /**
+     * Subreddits the account is in, busiest first, plus its own profile page.
+     *
+     * @return array<int, RedditSubreddit>
+     */
+    public function listRedditSubreddits(string $accountId): array
+    {
+        return RedditSubreddit::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/reddit/subreddits")));
+    }
+
+    /** The rules a subreddit publishes, in its own order. */
+    public function listRedditSubredditRules(string $accountId, string $subreddit): RedditSubredditRules
+    {
+        $name = rawurlencode($subreddit);
+
+        return RedditSubredditRules::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/reddit/subreddits/{$name}/rules"),
+        ));
+    }
+
+    /** Post flairs one subreddit offers; a flair id is valid only there. */
+    public function listRedditFlairs(string $accountId, string $subreddit): RedditFlairs
+    {
+        return RedditFlairs::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/reddit/flairs", ['subreddit' => $subreddit]),
+        ));
+    }
+
+    /** Where posts go when a post names none; null falls back to the account's own profile page. */
+    public function setRedditDefaultSubreddit(string $accountId, ?string $subreddit): RedditDefaultSubreddit
+    {
+        return RedditDefaultSubreddit::fromArray(self::unwrap(
+            $this->http->put("/accounts/{$accountId}/reddit/default-subreddit", ['subreddit' => $subreddit]),
         ));
     }
 

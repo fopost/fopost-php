@@ -134,6 +134,12 @@ $channels = $client->accounts()->listSlackChannels('acc_1');
 $members = $client->accounts()->listSlackMembers('acc_1');
 $identity = $client->accounts()->getSlackIdentity('acc_1');
 $client->accounts()->updateSlackIdentity('acc_1', username: 'Launch Bot', iconEmoji: ':rocket:');
+
+// Reddit: where a post can go, and what that subreddit expects of it.
+$subreddits = $client->accounts()->listRedditSubreddits('acc_1');
+$rules = $client->accounts()->listRedditSubredditRules('acc_1', 'webdev');
+$flairs = $client->accounts()->listRedditFlairs('acc_1', 'webdev');
+$client->accounts()->setRedditDefaultSubreddit('acc_1', 'webdev');
 ```
 
 ## Account groups
@@ -223,6 +229,7 @@ $client->inbox()->delete($item->id);        // also deletes our own reply
 
 // These also need the `publish` scope; the item's can* flags say where each works.
 $client->inbox()->like($item->id);          // unlike()
+$client->inbox()->vote($item->id, 'down');  // 'up', 'down', or 'none' to take it back
 $client->inbox()->pin($item->id);           // unpin()
 $client->inbox()->react($item->id, '❤️');   // null removes ours
 $client->inbox()->editComment($item->id, 'Fixed a typo');
@@ -411,6 +418,7 @@ $length = $client->validate()->length('Some text', ['twitter', 'linkedin']);
 $length->platforms[0]->length;          // in $length->platforms[0]->unit, limit is null when unbounded
 
 $media = $client->validate()->media('https://yourbrand.com/launch.png');
+$sub = $client->validate()->subreddit('acc_1', 'webdev');
 $media->ok;                             // 200 even when a check fails; read $media->issues
 ```
 

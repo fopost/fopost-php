@@ -246,6 +246,19 @@ final class InboxResource extends Resource
         return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unlike")));
     }
 
+    /**
+     * Vote up or down where the network ranks by votes (Reddit), where canVote is true.
+     *
+     * $direction is 'up', 'down', or 'none' to take an earlier vote back. An upvote is
+     * the same call a like makes, so $liked moves with it. Needs the `publish` scope.
+     */
+    public function vote(string $itemId, string $direction): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap(
+            $this->http->post("/inbox/{$itemId}/vote", ['direction' => $direction]),
+        ));
+    }
+
     /** Pin our own comment, where canPin is true. Needs the `publish` scope. */
     public function pin(string $itemId): InboxItem
     {
