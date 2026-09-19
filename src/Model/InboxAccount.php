@@ -19,6 +19,7 @@ final class InboxAccount extends Model
         public readonly ?string $pendingReason,
         public readonly ?bool $dmSupported,
         public readonly ?string $dmPendingReason,
+        public readonly ?bool $canStartConversation,
     ) {
         parent::__construct($raw);
     }
@@ -39,6 +40,7 @@ final class InboxAccount extends Model
             self::str($data, 'pending_reason'),
             self::bool($data, 'dm_supported'),
             self::str($data, 'dm_pending_reason'),
+            self::bool($data, 'can_start_conversation'),
         );
     }
 }
