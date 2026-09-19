@@ -203,7 +203,17 @@ $reply = $client->inbox()->reply($item->id, 'Thanks for the kind words');
 echo $reply->externalUrl;
 $client->inbox()->hide($item->id);
 $client->inbox()->unhide($item->id);
-$client->inbox()->delete($item->id);
+$client->inbox()->delete($item->id);        // also deletes our own reply
+
+// These also need the `publish` scope; the item's can* flags say where each works.
+$client->inbox()->like($item->id);          // unlike()
+$client->inbox()->pin($item->id);           // unpin()
+$client->inbox()->react($item->id, '❤️');   // null removes ours
+$client->inbox()->editComment($item->id, 'Fixed a typo');
+$client->inbox()->reply($item->id, mediaIds: [$mediaId], quickReplies: ['Yes', 'No']);
+$started = $client->inbox()->startConversation('Hi there', accountId: $accountId, handle: 'sam');
+$client->inbox()->startConversation('Sent you the details', commentId: $item->id);
+$client->inbox()->setTyping($started->conversationId, $accountId);
 
 // Replies an automation or the agent drafted, waiting for a person.
 foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
