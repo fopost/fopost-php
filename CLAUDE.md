@@ -10,7 +10,7 @@ exception per error status. PSR-4 autoload root `Fopost\Sdk\` → `src/`.
 
 - **PHP >= 8.1.** Extensions `ext-curl` and `ext-json` are the only runtime requirements —
   there are no Composer runtime dependencies, and none may be added.
-- Version `0.2.0`, declared in `Fopost\Sdk\Client::VERSION`. `composer.json` carries no
+- Version `0.3.0`, declared in `Fopost\Sdk\Client::VERSION`. `composer.json` carries no
   `version` key (Packagist reads the git tag).
 
 ## Downstream Packages
