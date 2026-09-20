@@ -257,6 +257,7 @@ final class AccountsTest extends TestCase
                 'type' => 0,
                 'parent_id' => null,
                 'nsfw' => false,
+                'can_post' => true,
                 'is_current' => true,
             ],
         ]]);
