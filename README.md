@@ -278,6 +278,40 @@ foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
 $client->inbox()->rejectReply($approval->id);
 ```
 
+## Knowledge
+
+What the workspace has told FoPost about itself. Retrieval over these sources
+is what grounds a drafted inbox reply in your own answers instead of an
+invented one. Needs the `inbox` scope.
+
+```php
+// A source is an FAQ, a note, a page on your own site, or a plain-text/CSV
+// media item. Adding one queues it for indexing, so it comes back `pending`.
+$faq = $client->knowledge()->create(
+    kind: 'faq',
+    title: 'Refunds and returns',
+    content: "Q: How long do refunds take?\nA: Up to 30 days from the request.",
+    workspaceId: $workspaceId,
+);
+$page = $client->knowledge()->create(kind: 'url', title: 'Shipping', url: 'https://yourbrand.com/shipping');
+$file = $client->knowledge()->create(kind: 'file', title: 'Price list', mediaId: $mediaId);
+
+foreach ($client->knowledge()->list($workspaceId) as $source) {
+    echo $source->title, ' ', $source->status, ' ', $source->chunkCount, PHP_EOL;
+}
+
+// Editing the text or the URL re-indexes the source on its own.
+$client->knowledge()->update($faq->id, title: 'Refunds');
+// A page you changed on your own site needs an explicit re-read.
+$client->knowledge()->sync($page->id);
+$client->knowledge()->delete($file->id);
+
+// Empty is the honest answer when nothing stored answers the question.
+foreach ($client->knowledge()->search('how long do refunds take?', topK: 3) as $match) {
+    echo $match->sourceTitle, ': ', $match->text, PHP_EOL;
+}
+```
+
 ## Ads
 
 Meta ads, audiences and lead forms. Needs the `ads` scope; `boost()`, `create()`, `setStatus()` and `delete()` spend money and also need `publish`. A boost or ad starts paused unless `paused: false` is passed.
