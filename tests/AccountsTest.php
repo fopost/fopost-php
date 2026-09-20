@@ -364,4 +364,99 @@ final class AccountsTest extends TestCase
             $this->assertSame('webhook_connection', $e->errorCode);
         }
     }
+    public function testCreatePinterestBoardSendsOnlyWhatWasGiven(): void
+    {
+        $this->transport->push(201, ['data' => ['id' => 'b1', 'name' => 'Recipes', 'privacy' => 'PUBLIC']]);
+
+        $board = $this->client()->accounts()->createPinterestBoard('a_1', 'Recipes');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/pinterest/boards', $this->transport->last()['url']);
+        $this->assertSame(['name' => 'Recipes'], $this->transport->lastJson());
+        $this->assertSame('b1', $board->id);
+    }
+
+    public function testYouTubePlaylistsAndTranscript(): void
+    {
+        $this->transport->push(200, ['data' => [['id' => 'PL1', 'title' => 'Tutorials', 'is_default' => true]]]);
+        $playlists = $this->client()->accounts()->listYouTubePlaylists('a_1');
+        $this->assertTrue($playlists[0]->isDefault);
+
+        $this->transport->push(200, ['data' => ['caption_id' => 'cap1', 'transcript' => "1\nHello\n"]]);
+        $transcript = $this->client()->accounts()->readYouTubeTranscript('a_1', 'cap1');
+        $this->assertStringContainsString('Hello', $transcript->transcript);
+    }
+
+    public function testBlueskyLanguagesRoundTrip(): void
+    {
+        $this->transport->push(200, ['data' => ['languages' => ['en', 'pt-BR']]]);
+
+        $result = $this->client()->accounts()->setBlueskyLanguages('a_1', ['en', 'pt-BR']);
+
+        $this->assertSame('PUT', $this->transport->last()['method']);
+        $this->assertSame(['languages' => ['en', 'pt-BR']], $this->transport->lastJson());
+        $this->assertSame(['en', 'pt-BR'], $result->languages);
+    }
+
+    public function testTikTokCreatorInfoReportsTheAccountsOwnSwitches(): void
+    {
+        $this->transport->push(200, ['data' => [
+            'privacy_level_options' => ['PUBLIC_TO_EVERYONE'],
+            'duet_disabled' => true,
+            'max_video_post_duration_sec' => 600,
+        ]]);
+
+        $info = $this->client()->accounts()->getTikTokCreatorInfo('a_1');
+
+        $this->assertTrue($info->duetDisabled);
+        $this->assertFalse($info->stitchDisabled);
+        $this->assertSame(600, $info->maxVideoPostDurationSec);
+    }
+
+    public function testTikTokMusicAndPlaceSearchPassTheQueryThrough(): void
+    {
+        $this->transport->push(200, ['data' => [
+            ['id' => 'm1', 'title' => 'Sunrise', 'author' => 'Kite'],
+        ]]);
+
+        $tracks = $this->client()->accounts()->searchTikTokMusic('a_1', 'sunrise', 5);
+
+        $this->assertSame('m1', $tracks[0]->id);
+        $this->assertStringContainsString('q=sunrise', $this->transport->last()['url']);
+        $this->assertStringContainsString('limit=5', $this->transport->last()['url']);
+
+        $this->transport->push(200, ['data' => [['id' => 'p1', 'name' => 'Blue Bottle']]]);
+        $places = $this->client()->accounts()->searchTikTokLocations('a_1', 'cafe');
+        $this->assertSame('Blue Bottle', $places[0]->name);
+    }
+
+    public function testTikTokVideoLookupReturnsTheAddressARepurposeRunReads(): void
+    {
+        $this->transport->push(200, ['data' => [
+            'video_id' => '7300000000000000000',
+            'download_url' => 'https://www.tiktok.com/@a/video/7300000000000000000',
+        ]]);
+
+        $video = $this->client()->accounts()->lookupTikTokVideo(
+            'a_1',
+            'https://www.tiktok.com/@a/video/7300000000000000000',
+        );
+
+        $this->assertSame('7300000000000000000', $video->videoId);
+        $this->assertNotNull($video->downloadUrl);
+    }
+
+    public function testInstagramAndLinkedInReads(): void
+    {
+        $this->transport->push(200, ['data' => ['quota_usage' => 12, 'quota_total' => 50, 'remaining' => 38]]);
+        $this->assertSame(38, $this->client()->accounts()->getInstagramPublishingLimit('a_1')->remaining);
+
+        $this->transport->push(200, ['data' => [[
+            'urn' => 'urn:li:organization:2414183',
+            'name' => 'Devtestco',
+            'annotation' => '@[Devtestco](urn:li:organization:2414183)',
+        ]]]);
+        $mentions = $this->client()->accounts()->searchLinkedInMentions('a_1', 'devtestco');
+        $this->assertStringEndsWith('(urn:li:organization:2414183)', $mentions[0]->annotation);
+    }
 }
