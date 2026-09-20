@@ -414,6 +414,39 @@ $media = $client->validate()->media('https://yourbrand.com/launch.png');
 $media->ok;                             // 200 even when a check fails; read $media->issues
 ```
 
+## WhatsApp Business
+
+A WhatsApp Business number you already own. The platform owns the templates,
+flows, profile and commerce settings, so every call is live; all of it answers
+503 until WhatsApp is set up. Needs the `accounts` scope, except the sandbox,
+which sends a template and needs `publish`.
+
+```php
+$profile = $client->whatsapp()->getProfile($accountId);
+$profile->qualityRating;                // as the platform reports it
+
+// Filing a template returns the review status the platform gave it, never an
+// assumed one.
+$template = $client->whatsapp()->createTemplate(
+    $accountId,
+    'order_shipped',
+    'en_US',
+    'UTILITY',
+    [['type' => 'BODY', 'text' => 'Your order is on its way.']],
+);
+$template->status;                      // PENDING until the platform approves it
+
+// A flow is created as a draft, its screens uploaded, then published.
+$flow = $client->whatsapp()->createFlow($accountId, 'Book a fitting', ['LEAD_GENERATION']);
+$client->whatsapp()->uploadFlowJson($accountId, $flow->id, ['version' => '7.0', 'screens' => []]);
+$client->whatsapp()->publishFlow($accountId, $flow->id);
+$client->whatsapp()->listFlowResponses($accountId);
+
+// Groups are invite-only: there is no endpoint that adds a participant.
+$group = $client->whatsapp()->createGroup($accountId, 'Launch crew');
+$client->whatsapp()->getGroupInviteLink($accountId, $group->id);
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.

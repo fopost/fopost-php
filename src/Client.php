@@ -15,6 +15,7 @@ use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\ValidateResource;
+use Fopost\Sdk\Resource\WhatsappResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
 
@@ -44,6 +45,7 @@ final class Client
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
+    private readonly WhatsappResource $whatsapp;
 
     public function __construct(
         ?string $apiKey = null,
@@ -71,6 +73,7 @@ final class Client
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
+        $this->whatsapp = new WhatsappResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -121,6 +124,11 @@ final class Client
     public function validate(): ValidateResource
     {
         return $this->validate;
+    }
+
+    public function whatsapp(): WhatsappResource
+    {
+        return $this->whatsapp;
     }
 
     public function baseUrl(): string
