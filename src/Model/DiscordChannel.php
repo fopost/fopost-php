@@ -15,6 +15,8 @@ final class DiscordChannel extends Model
         public readonly int $type,
         public readonly ?string $parentId,
         public readonly bool $nsfw,
+        /** False when a channel permission in Discord shuts the bot out. */
+        public readonly bool $canPost,
         public readonly bool $isCurrent,
     ) {
         parent::__construct($raw);
@@ -31,6 +33,7 @@ final class DiscordChannel extends Model
             self::int($data, 'type') ?? 0,
             self::str($data, 'parent_id'),
             self::bool($data, 'nsfw') ?? false,
+            self::bool($data, 'can_post') ?? true,
             self::bool($data, 'is_current') ?? false,
         );
     }
