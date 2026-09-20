@@ -7,9 +7,12 @@ namespace Fopost\Sdk\Resource;
 use DateTimeInterface;
 use Fopost\Sdk\Model\Ad;
 use Fopost\Sdk\Model\AdAccountTree;
+use Fopost\Sdk\Model\AdBusinessCenter;
 use Fopost\Sdk\Model\AdCampaign;
+use Fopost\Sdk\Model\AdCommentsPage;
 use Fopost\Sdk\Model\AdConnection;
 use Fopost\Sdk\Model\AdCreative;
+use Fopost\Sdk\Model\AdIdentity;
 use Fopost\Sdk\Model\AdInsightsReport;
 use Fopost\Sdk\Model\AdSet;
 use Fopost\Sdk\Model\AdSource;
@@ -26,6 +29,7 @@ use Fopost\Sdk\Model\LeadsFeedPage;
 use Fopost\Sdk\Model\LeadsPage;
 use Fopost\Sdk\Model\NetworkAd;
 use Fopost\Sdk\Model\ReachEstimate;
+use Fopost\Sdk\Model\SparkPost;
 use Fopost\Sdk\Model\TargetingOption;
 
 /**
@@ -164,6 +168,7 @@ final class AdsResource extends Resource
         ?string $mediaUrl = null,
         ?bool $paused = null,
         ?string $urlTags = null,
+        ?string $sparkPostId = null,
     ): Ad {
         $body = self::compact([
             'workspaceId' => $workspaceId,
@@ -175,6 +180,7 @@ final class AdsResource extends Resource
             'budget' => $budget,
             'targeting' => $targeting,
             'text' => $text,
+            'sparkPostId' => $sparkPostId,
             'headline' => $headline,
             'destinationUrl' => $destinationUrl,
             'mediaUrl' => $mediaUrl,
@@ -312,6 +318,147 @@ final class AdsResource extends Resource
         ])));
     }
 
+    /**
+     * TikTok's Business Centers, the one network-named read in this resource.
+     *
+     * @return array<int, AdBusinessCenter>
+     */
+    public function tiktokBusinessCenters(string $connectionId, ?string $workspaceId = null): array
+    {
+        return AdBusinessCenter::listFrom(self::unwrap($this->http->get(
+            '/ads/tiktok/business-centers',
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /**
+     * The accounts an ad can run as; an identity id is a $pageId.
+     *
+     * @return array<int, AdIdentity>
+     */
+    public function tiktokIdentities(
+        string $connectionId,
+        string $adAccountId,
+        ?string $workspaceId = null,
+    ): array {
+        return AdIdentity::listFrom(self::unwrap($this->http->get('/ads/tiktok/identities', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'ad_account_id' => $adAccountId,
+        ])));
+    }
+
+    /**
+     * Posts already live under an identity, each a candidate Spark ad.
+     *
+     * @return array<int, SparkPost>
+     */
+    public function sparkPosts(
+        string $connectionId,
+        string $adAccountId,
+        string $identityId,
+        ?string $workspaceId = null,
+    ): array {
+        return SparkPost::listFrom(self::unwrap($this->http->get('/ads/spark-posts', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'ad_account_id' => $adAccountId,
+            'identity_id' => $identityId,
+        ])));
+    }
+
+    /**
+     * Offline conversions. Identifiers are hashed before they leave FoPost.
+     *
+     * @param array<int, array<string, mixed>> $events up to 1000 per call
+     *
+     * @return int the number the network accepted
+     */
+    public function uploadConversions(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $pixelId,
+        array $events,
+    ): int {
+        $result = self::unwrap($this->http->post('/ads/conversions', [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'pixelId' => $pixelId,
+            'events' => $events,
+        ]));
+
+        return is_array($result) && isset($result['accepted']) ? (int) $result['accepted'] : 0;
+    }
+
+    /** One page of an ad's comments; pass `nextCursor` back as $after. */
+    public function comments(
+        string $connectionId,
+        string $adId,
+        ?string $after = null,
+        ?string $workspaceId = null,
+    ): AdCommentsPage {
+        return AdCommentsPage::fromArray(self::unwrap($this->http->get('/ads/comments', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'ad_id' => $adId,
+            'after' => $after,
+        ])));
+    }
+
+    /**
+     * Needs the `publish` scope as well as `ads`.
+     *
+     * @return string the reply's id on the network
+     */
+    public function replyToComment(
+        string $commentId,
+        string $workspaceId,
+        string $connectionId,
+        string $adId,
+        string $text,
+    ): string {
+        $result = self::unwrap($this->http->post("/ads/comments/{$commentId}/reply", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adId' => $adId,
+            'text' => $text,
+        ]));
+
+        return is_array($result) && isset($result['replyId']) ? (string) $result['replyId'] : '';
+    }
+
+    /** Needs the `publish` scope as well as `ads`. */
+    public function setCommentHidden(
+        string $commentId,
+        string $workspaceId,
+        string $connectionId,
+        string $adId,
+        bool $hidden,
+    ): void {
+        $this->http->post("/ads/comments/{$commentId}/hide", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adId' => $adId,
+            'hidden' => $hidden,
+        ]);
+    }
+
+    /** One already gone on the network succeeds. Needs `publish` as well as `ads`. */
+    public function deleteComment(
+        string $commentId,
+        string $workspaceId,
+        string $connectionId,
+        string $adId,
+    ): void {
+        $this->http->request('DELETE', "/ads/comments/{$commentId}", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adId' => $adId,
+        ]);
+    }
+
     /** Every campaign on the ad account with its ad sets and ads, read live. */
     public function accountTree(string $adAccountId, string $connectionId, ?string $workspaceId = null): AdAccountTree
     {
@@ -332,6 +479,7 @@ final class AdsResource extends Resource
         string $name,
         string $goal,
         ?bool $paused = null,
+        ?bool $smartPlus = null,
     ): AdCampaign {
         $body = self::compact([
             'workspaceId' => $workspaceId,
@@ -340,6 +488,7 @@ final class AdsResource extends Resource
             'name' => $name,
             'goal' => $goal,
             'paused' => $paused,
+            'smartPlus' => $smartPlus,
         ]);
 
         return AdCampaign::fromArray(self::unwrap($this->http->post('/ads/campaigns', $body)));
