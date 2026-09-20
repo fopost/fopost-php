@@ -6,7 +6,7 @@ namespace Fopost\Sdk\Model;
 
 use DateTimeImmutable;
 
-/** A comment, mention or direct message on a connected account. */
+/** A comment, mention, review or direct message on a connected account. */
 final class InboxItem extends Model
 {
     /**
@@ -28,6 +28,8 @@ final class InboxItem extends Model
         public readonly ?string $authorHandle,
         public readonly ?string $authorAvatarUrl,
         public readonly ?string $text,
+        /** Stars on a review, 1-5. Null on every other type. */
+        public readonly ?int $rating,
         public readonly array $attachments,
         public readonly ?string $permalink,
         public readonly ?string $postExternalId,
@@ -75,6 +77,7 @@ final class InboxItem extends Model
             self::str($data, 'author_handle'),
             self::str($data, 'author_avatar_url'),
             self::str($data, 'text'),
+            self::int($data, 'rating'),
             InboxAttachment::listFrom(self::seq($data, 'attachments')),
             self::str($data, 'permalink'),
             self::str($data, 'post_external_id'),
