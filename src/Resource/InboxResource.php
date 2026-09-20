@@ -18,7 +18,7 @@ use Fopost\Sdk\Model\InboxThread;
 use Fopost\Sdk\Model\Page;
 
 /**
- * $client->inbox(): comments, mentions and direct messages on connected accounts.
+ * $client->inbox(): comments, mentions, reviews and direct messages on connected accounts.
  *
  * Every call needs the `inbox` scope.
  */
@@ -64,7 +64,8 @@ final class InboxResource extends Resource
     }
 
     /**
-     * One row per post with comments; pass kind `mentions` for posts we were tagged in.
+     * One row per post with comments; pass kind `mentions` for posts we were tagged in,
+     * or `reviews` for one row per review left on the business.
      *
      * @return Page<InboxThread>
      */
