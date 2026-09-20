@@ -555,6 +555,45 @@ while ($page->nextCursor !== null) {
 $client->ads()->unsubscribeLeadPage('555', $workspaceId, $connectionId);
 ```
 
+Catalogs, predictions and the public archive:
+
+```php
+// Ask the connection what it can run, rather than assuming.
+$goals = $client->ads()->goals($connectionId, $workspaceId);
+
+// A catalog with a product set is what a catalog ad runs from.
+$catalog = $client->ads()->createCatalog($workspaceId, $connectionId, 'Shop');
+$client->ads()->writeCatalogProducts($catalog->id, $workspaceId, $connectionId, [
+    [
+        'op' => 'upsert',
+        'retailerId' => 'SKU-1042',
+        'name' => 'Trail Runner',
+        'url' => 'https://yourbrand.com/shop/trail-runner',
+        'imageUrl' => 'https://yourbrand.com/img/trail-runner.jpg',
+        'priceMinor' => 12900,
+        'currency' => 'USD',
+    ],
+]);
+$set = $client->ads()->createProductSet($catalog->id, $workspaceId, $connectionId, 'Best sellers');
+
+// Price a flight before buying it.
+$prediction = $client->ads()->createReachFrequency(
+    $workspaceId,
+    $connectionId,
+    'act_1234567890',
+    'Launch week',
+    ['countries' => ['US'], 'ageMin' => 18, 'ageMax' => 65, 'gender' => 'all'],
+    ['facebook'],
+    500000,
+    '2026-10-01T00:00:00Z',
+    '2026-10-08T00:00:00Z',
+);
+$client->ads()->reserveReachFrequency($prediction->id, $workspaceId, $connectionId, 'act_1234567890');
+
+// What anyone is running, read live and stored nowhere.
+$archive = $client->ads()->library($connectionId, ['US'], $workspaceId, q: 'running shoes');
+```
+
 ## Media
 
 Upload a file straight to storage with a presigned URL, then register it in the media library. Needs the `posts` scope.
