@@ -414,6 +414,25 @@ $media = $client->validate()->media('https://yourbrand.com/launch.png');
 $media->ok;                             // 200 even when a check fails; read $media->issues
 ```
 
+## Activity
+
+What happened in a workspace, newest first. Needs the `analytics` scope.
+
+```php
+$page = $client->activity()->list('w_1');
+$page->events[0]->summary;              // "Published to 3 accounts"
+$page->events[0]->actor->name;          // who did it
+$page->nextCursor;                      // pass back as $cursor for the next page
+```
+
+`kind` of `security` is the audit log: members joining, leaving or changing role
+and access, and changes to two-step verification, passkeys, single sign-on and
+signed-in devices. Those rows are append-only and never expire.
+
+```php
+$audit = $client->activity()->list('w_1', 'security');
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.
