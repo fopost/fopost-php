@@ -151,6 +151,25 @@ $subscription = $client->accounts()->getWebhookSubscription('acc_1');
 if (!$subscription->subscribed) {
     $client->accounts()->resubscribeWebhook('acc_1');
 }
+
+// Discord (bot connections): the channel, the bot's identity, and the server itself.
+// Discord ids are snowflakes; take them from the list calls rather than typing one.
+$channels = $client->accounts()->listDiscordChannels('acc_2');
+$client->accounts()->switchDiscordChannel('acc_2', $channels[0]->id);
+$client->accounts()->updateDiscordIdentity('acc_2', username: 'Release Bot');
+
+$client->accounts()->createDiscordEvent(
+    'acc_2',
+    name: 'Launch stream',
+    startTime: '2026-10-01T18:00:00Z',
+    endTime: '2026-10-01T19:00:00Z',
+    location: 'https://yourbrand.com/live',
+);
+
+$members = $client->accounts()->listDiscordMembers('acc_2', query: 'ada');
+$role = $client->accounts()->createDiscordRole('acc_2', 'Beta');
+$client->accounts()->addDiscordMemberRole('acc_2', $role->id, $members[0]->id);
+$client->accounts()->sendDiscordDm('acc_2', $members[0]->id, 'Welcome aboard');
 ```
 
 ## Account groups
