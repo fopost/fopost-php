@@ -11,12 +11,17 @@ use Fopost\Sdk\Model\AdCampaign;
 use Fopost\Sdk\Model\AdConnection;
 use Fopost\Sdk\Model\AdCreative;
 use Fopost\Sdk\Model\AdInsightsReport;
+use Fopost\Sdk\Model\AdLibraryPage;
+use Fopost\Sdk\Model\AdProvider;
 use Fopost\Sdk\Model\AdSet;
 use Fopost\Sdk\Model\AdSource;
 use Fopost\Sdk\Model\Audience;
 use Fopost\Sdk\Model\AudiencesResult;
 use Fopost\Sdk\Model\BoostablePost;
+use Fopost\Sdk\Model\BidPricing;
 use Fopost\Sdk\Model\BulkAdStatusResult;
+use Fopost\Sdk\Model\ConversionMetrics;
+use Fopost\Sdk\Model\ConversionRule;
 use Fopost\Sdk\Model\CreatedAudience;
 use Fopost\Sdk\Model\ExternalAd;
 use Fopost\Sdk\Model\LeadFormDetail;
@@ -26,10 +31,11 @@ use Fopost\Sdk\Model\LeadsFeedPage;
 use Fopost\Sdk\Model\LeadsPage;
 use Fopost\Sdk\Model\NetworkAd;
 use Fopost\Sdk\Model\ReachEstimate;
+use Fopost\Sdk\Model\SupplyForecast;
 use Fopost\Sdk\Model\TargetingOption;
 
 /**
- * $client->ads(): Meta ads, audiences and lead forms.
+ * $client->ads(): ads, audiences and lead forms on a connected network.
  *
  * Every call needs the `ads` scope. boost(), create(), setStatus(), delete(), bulkSetStatus() and the
  * create, update, delete and duplicate calls on campaigns, ad sets and network ads spend money and
@@ -88,17 +94,37 @@ final class AdsResource extends Resource
         );
     }
 
-    /** The Meta login URL; the caller finishes it in a browser. Method is `business` or `user`. */
-    public function authorizeMeta(string $workspaceId, ?string $method = null, ?string $returnTo = null): string
+    /**
+     * The ad networks this deployment knows, with what each one supports.
+     *
+     * @return array<int, AdProvider>
+     */
+    public function providers(): array
     {
+        return AdProvider::listFrom(self::unwrap($this->http->get('/ads/providers')));
+    }
+
+    /** The network's login URL; the caller finishes it in a browser. */
+    public function authorize(
+        string $provider,
+        string $workspaceId,
+        ?string $method = null,
+        ?string $returnTo = null,
+    ): string {
         $body = self::compact([
             'workspaceId' => $workspaceId,
             'method' => $method,
             'returnTo' => $returnTo,
         ]);
-        $result = self::unwrap($this->http->post('/ads/connections/meta/authorize', $body));
+        $result = self::unwrap($this->http->post("/ads/connections/{$provider}/authorize", $body));
 
         return is_array($result) && is_string($result['url'] ?? null) ? $result['url'] : '';
+    }
+
+    /** @deprecated Use authorize('meta', ...). */
+    public function authorizeMeta(string $workspaceId, ?string $method = null, ?string $returnTo = null): string
+    {
+        return $this->authorize('meta', $workspaceId, $method, $returnTo);
     }
 
     /** Also deletes every ad record created through the connection. */
@@ -665,6 +691,244 @@ final class AdsResource extends Resource
         return is_array($result) && is_int($result['added'] ?? null) ? $result['added'] : 0;
     }
 
+    /**
+     * Add companies to a company-list audience. Returns the count the network took.
+     * Each row needs a name, domain, pageUrl or ticker; the rows are never stored.
+     *
+     * @param array<int, array<string, mixed>> $companies
+     */
+    public function addAudienceCompanies(
+        string $audienceId,
+        string $workspaceId,
+        string $connectionId,
+        array $companies,
+    ): int {
+        $result = self::unwrap($this->http->request(
+            'POST',
+            "/ads/audiences/{$audienceId}/companies",
+            ['companies' => array_values($companies)],
+            self::scope($workspaceId, $connectionId),
+        ));
+
+        return is_array($result) && is_int($result['added'] ?? null) ? $result['added'] : 0;
+    }
+
+    /**
+     * What the auction currently costs for that audience.
+     *
+     * @param array<string, mixed> $targeting
+     * @param array<int, string>   $placements
+     */
+    public function bidPricing(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $goal,
+        array $targeting,
+        ?array $placements = null,
+        ?string $bidType = null,
+    ): BidPricing {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'goal' => $goal,
+            'targeting' => $targeting,
+            'placements' => $placements,
+            'bidType' => $bidType,
+        ]);
+
+        return BidPricing::fromArray(self::unwrap($this->http->post('/ads/linkedin/bid-pricing', $body)));
+    }
+
+    /**
+     * What that audience would deliver at that budget.
+     *
+     * @param array<string, mixed> $targeting
+     * @param array<int, string>   $placements
+     */
+    public function supplyForecast(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $goal,
+        array $targeting,
+        ?array $placements = null,
+        ?int $budgetMinor = null,
+    ): SupplyForecast {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'goal' => $goal,
+            'targeting' => $targeting,
+            'placements' => $placements,
+            'budgetMinor' => $budgetMinor,
+        ]);
+
+        return SupplyForecast::fromArray(self::unwrap($this->http->post('/ads/linkedin/supply-forecast', $body)));
+    }
+
+    /** @return array<int, ConversionRule> */
+    public function conversionRules(?string $workspaceId, string $connectionId, string $adAccountId): array
+    {
+        return ConversionRule::listFrom(self::unwrap($this->http->get(
+            '/ads/linkedin/conversion-rules',
+            self::scope($workspaceId, $connectionId) + ['ad_account_id' => $adAccountId],
+        )));
+    }
+
+    /** Returns the new rule's id. */
+    public function createConversionRule(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+        string $type,
+        string $attribution,
+        ?int $postClickWindowDays = null,
+        ?int $viewThroughWindowDays = null,
+        ?int $valueMinor = null,
+        ?string $currency = null,
+    ): string {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+            'type' => $type,
+            'attribution' => $attribution,
+            'postClickWindowDays' => $postClickWindowDays,
+            'viewThroughWindowDays' => $viewThroughWindowDays,
+            'valueMinor' => $valueMinor,
+            'currency' => $currency,
+        ]);
+        $result = self::unwrap($this->http->post('/ads/linkedin/conversion-rules', $body));
+
+        return is_array($result) && is_string($result['id'] ?? null) ? $result['id'] : '';
+    }
+
+    public function getConversionRule(string $ruleId, ?string $workspaceId, string $connectionId): ConversionRule
+    {
+        return ConversionRule::fromArray(self::unwrap($this->http->get(
+            "/ads/linkedin/conversion-rules/{$ruleId}",
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /**
+     * Change a rule. Keys are the API's own: name, type, attribution,
+     * postClickWindowDays, viewThroughWindowDays, valueMinor, currency, enabled.
+     *
+     * @param array<string, mixed> $changes
+     */
+    public function updateConversionRule(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        array $changes,
+    ): ConversionRule {
+        return ConversionRule::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/ads/linkedin/conversion-rules/{$ruleId}",
+            $changes,
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /** Turns the rule off; the network keeps the history. */
+    public function deleteConversionRule(string $ruleId, string $workspaceId, string $connectionId): void
+    {
+        $this->http->request(
+            'DELETE',
+            "/ads/linkedin/conversion-rules/{$ruleId}",
+            null,
+            self::scope($workspaceId, $connectionId),
+        );
+    }
+
+    public function attachConversionRule(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        string $campaignId,
+    ): ConversionRule {
+        return $this->association('POST', $ruleId, $workspaceId, $connectionId, $campaignId);
+    }
+
+    public function detachConversionRule(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        string $campaignId,
+    ): ConversionRule {
+        return $this->association('DELETE', $ruleId, $workspaceId, $connectionId, $campaignId);
+    }
+
+    /** What the rule recorded between two YYYY-MM-DD days, inclusive. */
+    public function conversionMetrics(
+        string $ruleId,
+        ?string $workspaceId,
+        string $connectionId,
+        string $since,
+        string $until,
+    ): ConversionMetrics {
+        return ConversionMetrics::fromArray(self::unwrap($this->http->get(
+            "/ads/linkedin/conversion-rules/{$ruleId}/metrics",
+            self::scope($workspaceId, $connectionId) + ['since' => $since, 'until' => $until],
+        )));
+    }
+
+    /**
+     * Send conversions back to the network. Returns how many it took. Each event
+     * needs happenedAt in epoch milliseconds and an email or a clickId; the
+     * address is hashed inside the API and nothing about an event is stored.
+     *
+     * @param array<int, array<string, mixed>> $events
+     */
+    public function sendConversionEvents(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        array $events,
+    ): int {
+        $result = self::unwrap($this->http->request(
+            'POST',
+            "/ads/linkedin/conversion-rules/{$ruleId}/events",
+            ['events' => array_values($events)],
+            self::scope($workspaceId, $connectionId),
+        ));
+
+        return is_array($result) && is_int($result['accepted'] ?? null) ? $result['accepted'] : 0;
+    }
+
+    /**
+     * The network's own public ad library, not the connection's ads.
+     *
+     * @param array<int, string> $countries ISO 3166-1 alpha-2 codes
+     */
+    public function adLibrary(
+        ?string $workspaceId,
+        string $connectionId,
+        ?string $keyword = null,
+        ?string $advertiser = null,
+        ?array $countries = null,
+        ?string $since = null,
+        ?string $until = null,
+        ?string $cursor = null,
+    ): AdLibraryPage {
+        $query = self::compact(self::scope($workspaceId, $connectionId) + [
+            'keyword' => $keyword,
+            'advertiser' => $advertiser,
+            'countries' => $countries === null ? null : implode(',', $countries),
+            'since' => $since,
+            'until' => $until,
+            'cursor' => $cursor,
+        ]);
+
+        return AdLibraryPage::fromArray(self::unwrap($this->http->get('/ads/ad-library', $query)));
+    }
+
     /** @param array<string, mixed> $targeting countries, ageMin, ageMax, gender, audienceIds, locations, ... */
     public function estimateReach(
         string $workspaceId,
@@ -792,6 +1056,21 @@ final class AdsResource extends Resource
     private static function scope(?string $workspaceId, string $connectionId): array
     {
         return ['workspace_id' => $workspaceId, 'connection_id' => $connectionId];
+    }
+
+    private function association(
+        string $method,
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        string $campaignId,
+    ): ConversionRule {
+        return ConversionRule::fromArray(self::unwrap($this->http->request(
+            $method,
+            "/ads/linkedin/conversion-rules/{$ruleId}/associations",
+            ['campaignId' => $campaignId],
+            self::scope($workspaceId, $connectionId),
+        )));
     }
 
     /**

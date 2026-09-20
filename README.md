@@ -249,7 +249,8 @@ $client->ads()->boostable($workspaceId);
 $client->ads()->connections($workspaceId);
 $client->ads()->sources($workspaceId);       // ad accounts and Pages per connection
 
-$url = $client->ads()->authorizeMeta($workspaceId);   // finish the login in a browser
+$client->ads()->providers();                 // the networks this deployment knows
+$url = $client->ads()->authorize('meta', $workspaceId);   // finish the login in a browser
 $client->ads()->deleteConnection($connectionId, $workspaceId);
 
 $boost = $client->ads()->boost(
@@ -346,12 +347,33 @@ $client->ads()->deleteCampaign($copyId, $workspaceId, $connectionId);
 // deleteNetworkAd(), duplicateAdSet(), duplicateNetworkAd(), creatives(), creative(), deleteCreative()
 ```
 
+### Forecasts, conversions and the ad library
+
+Available wherever the network's `capabilities` say so — `providers()` reports them.
+
+```php
+$client->ads()->bidPricing($workspaceId, $connectionId, $adAccountId, 'traffic', $targeting);
+$client->ads()->supplyForecast($workspaceId, $connectionId, $adAccountId, 'traffic', $targeting, budgetMinor: 50000);
+
+$rules = $client->ads()->conversionRules($workspaceId, $connectionId, $adAccountId);
+$ruleId = $client->ads()->createConversionRule(
+    $workspaceId, $connectionId, $adAccountId, 'Checkout', 'purchase', 'last_touch',
+);
+$client->ads()->attachConversionRule($ruleId, $workspaceId, $connectionId, $adSetId);
+$client->ads()->conversionMetrics($ruleId, $workspaceId, $connectionId, '2026-09-01', '2026-09-30');
+// Each event needs happenedAt in epoch ms and an email or a clickId; the API hashes the address.
+$client->ads()->sendConversionEvents($ruleId, $workspaceId, $connectionId, $events);
+
+$page = $client->ads()->adLibrary($workspaceId, $connectionId, keyword: 'crm', countries: ['US']);
+```
+
 ### Audiences, reach and insights
 
 ```php
 $client->ads()->audience($audienceId, $connectionId);
 $client->ads()->updateAudience($audienceId, $workspaceId, $connectionId, name: 'Customers 2026');
 $added = $client->ads()->addAudienceUsers($audienceId, $workspaceId, $connectionId, $emails);   // hashed by the API
+$client->ads()->addAudienceCompanies($audienceId, $workspaceId, $connectionId, $companies);     // a company list
 $client->ads()->deleteAudience($audienceId, $workspaceId, $connectionId);
 
 $reach = $client->ads()->estimateReach($workspaceId, $connectionId, 'act_123', '555', [
