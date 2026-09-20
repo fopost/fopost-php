@@ -19,6 +19,13 @@ use Fopost\Sdk\Model\MetaGreetingText;
 use Fopost\Sdk\Model\MetaIceBreaker;
 use Fopost\Sdk\Model\MetaIceBreakers;
 use Fopost\Sdk\Model\MetaPersistentMenu;
+use Fopost\Sdk\Model\BlueskyLanguages;
+use Fopost\Sdk\Model\InstagramAudio;
+use Fopost\Sdk\Model\InstagramPublishingLimit;
+use Fopost\Sdk\Model\InstagramStory;
+use Fopost\Sdk\Model\InstagramStoryInsights;
+use Fopost\Sdk\Model\LinkedInMention;
+use Fopost\Sdk\Model\PinterestBoard;
 use Fopost\Sdk\Model\SlackChannel;
 use Fopost\Sdk\Model\SlackIdentity;
 use Fopost\Sdk\Model\SlackMember;
@@ -28,6 +35,13 @@ use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
 use Fopost\Sdk\Model\WebhookSubscription;
+use Fopost\Sdk\Model\TikTokCreatorInfo;
+use Fopost\Sdk\Model\TikTokMusic;
+use Fopost\Sdk\Model\TikTokPlace;
+use Fopost\Sdk\Model\TikTokVideoSource;
+use Fopost\Sdk\Model\YouTubeCaptionTrack;
+use Fopost\Sdk\Model\YouTubePlaylist;
+use Fopost\Sdk\Model\YouTubeTranscript;
 use Fopost\Sdk\Undefined;
 
 /** $client->accounts(): the social accounts connected to a workspace. */
@@ -588,5 +602,231 @@ final class AccountsResource extends Resource
         ];
 
         return array_filter($body, static fn (mixed $value): bool => $value !== null);
+    }
+    // --- Per-network extras -------------------------------------------
+
+    /**
+     * Boards this Pinterest connection can pin to.
+     *
+     * @return array<int, PinterestBoard>
+     */
+    public function listPinterestBoards(string $accountId): array
+    {
+        return PinterestBoard::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/pinterest/boards")));
+    }
+
+    /** $privacy is PUBLIC, PROTECTED or SECRET. */
+    public function createPinterestBoard(
+        string $accountId,
+        string $name,
+        ?string $description = null,
+        ?string $privacy = null,
+    ): PinterestBoard {
+        $body = ['name' => $name];
+        if ($description !== null) {
+            $body['description'] = $description;
+        }
+        if ($privacy !== null) {
+            $body['privacy'] = $privacy;
+        }
+
+        return PinterestBoard::fromArray(
+            self::unwrap($this->http->post("/accounts/{$accountId}/pinterest/boards", $body)),
+        );
+    }
+
+    /**
+     * The channel's own playlists, with the stored default marked.
+     *
+     * @return array<int, YouTubePlaylist>
+     */
+    public function listYouTubePlaylists(string $accountId): array
+    {
+        return YouTubePlaylist::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/youtube/playlists")));
+    }
+
+    public function createYouTubePlaylist(
+        string $accountId,
+        string $title,
+        ?string $description = null,
+        ?string $privacy = null,
+    ): YouTubePlaylist {
+        $body = ['title' => $title];
+        if ($description !== null) {
+            $body['description'] = $description;
+        }
+        if ($privacy !== null) {
+            $body['privacy'] = $privacy;
+        }
+
+        return YouTubePlaylist::fromArray(
+            self::unwrap($this->http->post("/accounts/{$accountId}/youtube/playlists", $body)),
+        );
+    }
+
+    /** The playlist a new video joins when the post picks none; null clears it. */
+    public function setDefaultYouTubePlaylist(string $accountId, ?string $playlistId): ?string
+    {
+        $data = self::unwrap(
+            $this->http->put("/accounts/{$accountId}/youtube/playlists/default", ['playlist_id' => $playlistId]),
+        );
+        $stored = is_array($data) ? ($data['playlist_id'] ?? null) : null;
+
+        return is_string($stored) ? $stored : null;
+    }
+
+    /** @return array<int, YouTubeCaptionTrack> */
+    public function listYouTubeCaptions(string $accountId, string $videoId): array
+    {
+        return YouTubeCaptionTrack::listFrom(
+            self::unwrap($this->http->get("/accounts/{$accountId}/youtube/videos/{$videoId}/captions")),
+        );
+    }
+
+    /** $body is the subtitle file itself; YouTube reads SRT and WebVTT and sniffs which. */
+    public function uploadYouTubeCaptions(
+        string $accountId,
+        string $videoId,
+        string $language,
+        string $body,
+        ?string $name = null,
+        ?bool $isDraft = null,
+    ): YouTubeCaptionTrack {
+        $payload = ['language' => $language, 'body' => $body];
+        if ($name !== null) {
+            $payload['name'] = $name;
+        }
+        if ($isDraft !== null) {
+            $payload['is_draft'] = $isDraft;
+        }
+
+        return YouTubeCaptionTrack::fromArray(
+            self::unwrap($this->http->post("/accounts/{$accountId}/youtube/videos/{$videoId}/captions", $payload)),
+        );
+    }
+
+    public function readYouTubeTranscript(string $accountId, string $captionId): YouTubeTranscript
+    {
+        return YouTubeTranscript::fromArray(
+            self::unwrap($this->http->get("/accounts/{$accountId}/youtube/captions/{$captionId}")),
+        );
+    }
+
+    /** What a post from this connection is written in when it does not say. */
+    public function getBlueskyLanguages(string $accountId): BlueskyLanguages
+    {
+        return BlueskyLanguages::fromArray(
+            self::unwrap($this->http->get("/accounts/{$accountId}/bluesky/languages")),
+        );
+    }
+
+    /**
+     * Up to three BCP-47 tags; an empty list clears the default.
+     *
+     * @param array<int, string> $languages
+     */
+    public function setBlueskyLanguages(string $accountId, array $languages): BlueskyLanguages
+    {
+        return BlueskyLanguages::fromArray(
+            self::unwrap(
+                $this->http->put("/accounts/{$accountId}/bluesky/languages", ['languages' => array_values($languages)]),
+            ),
+        );
+    }
+
+    /** The switches TikTok enforces at publish time, changed in the TikTok app. */
+    public function getTikTokCreatorInfo(string $accountId): TikTokCreatorInfo
+    {
+        return TikTokCreatorInfo::fromArray(
+            self::unwrap($this->http->get("/accounts/{$accountId}/tiktok/creator-info")),
+        );
+    }
+
+    /**
+     * TikTok's Commercial Music Library.
+     *
+     * Needs the Marketing API product on the TikTok app; without it the call
+     * fails with 403 rather than answering an empty list.
+     *
+     * @return array<int, TikTokMusic>
+     */
+    public function searchTikTokMusic(string $accountId, string $q, ?int $limit = null): array
+    {
+        return TikTokMusic::listFrom(
+            self::unwrap($this->http->get("/accounts/{$accountId}/tiktok/music", ['q' => $q, 'limit' => $limit])),
+        );
+    }
+
+    /**
+     * Places a post can be tagged with. Same TikTok product as the music library.
+     *
+     * @return array<int, TikTokPlace>
+     */
+    public function searchTikTokLocations(string $accountId, string $q, ?int $limit = null): array
+    {
+        return TikTokPlace::listFrom(
+            self::unwrap($this->http->get("/accounts/{$accountId}/tiktok/locations", ['q' => $q, 'limit' => $limit])),
+        );
+    }
+
+    /** Resolve a share link to one of this account's own videos, for repurposing. */
+    public function lookupTikTokVideo(string $accountId, string $url): TikTokVideoSource
+    {
+        return TikTokVideoSource::fromArray(
+            self::unwrap($this->http->post("/accounts/{$accountId}/tiktok/video-download", ['url' => $url])),
+        );
+    }
+
+    /**
+     * Tracks a Reel can carry; with no query Instagram answers with what is trending.
+     *
+     * @return array<int, InstagramAudio>
+     */
+    public function searchInstagramAudio(string $accountId, ?string $q = null, ?string $audioType = null): array
+    {
+        $params = ['q' => $q, 'audio_type' => $audioType];
+
+        return InstagramAudio::listFrom(
+            self::unwrap($this->http->get("/accounts/{$accountId}/instagram/audio", $params)),
+        );
+    }
+
+    /** How many posts are left before Instagram refuses the next one. */
+    public function getInstagramPublishingLimit(string $accountId): InstagramPublishingLimit
+    {
+        return InstagramPublishingLimit::fromArray(
+            self::unwrap($this->http->get("/accounts/{$accountId}/instagram/publishing-limit")),
+        );
+    }
+
+    /**
+     * Stories still inside their 24 hours, posted through FoPost or not.
+     *
+     * @return array<int, InstagramStory>
+     */
+    public function listInstagramStories(string $accountId, ?bool $insights = null): array
+    {
+        return InstagramStory::listFrom(
+            self::unwrap($this->http->get("/accounts/{$accountId}/instagram/stories", ['insights' => $insights])),
+        );
+    }
+
+    public function getInstagramStoryInsights(string $accountId, string $storyId): InstagramStoryInsights
+    {
+        return InstagramStoryInsights::fromArray(
+            self::unwrap($this->http->get("/accounts/{$accountId}/instagram/stories/{$storyId}/insights")),
+        );
+    }
+
+    /**
+     * Organizations a LinkedIn post can mention. People are not searchable.
+     *
+     * @return array<int, LinkedInMention>
+     */
+    public function searchLinkedInMentions(string $accountId, string $q): array
+    {
+        return LinkedInMention::listFrom(
+            self::unwrap($this->http->get("/accounts/{$accountId}/linkedin/mentions", ['q' => $q])),
+        );
     }
 }
