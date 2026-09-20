@@ -6,6 +6,11 @@ namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\AccountMove;
 use Fopost\Sdk\Model\AccountRename;
+use Fopost\Sdk\Model\MetaGreeting;
+use Fopost\Sdk\Model\MetaGreetingText;
+use Fopost\Sdk\Model\MetaIceBreaker;
+use Fopost\Sdk\Model\MetaIceBreakers;
+use Fopost\Sdk\Model\MetaPersistentMenu;
 use Fopost\Sdk\Model\SlackChannel;
 use Fopost\Sdk\Model\SlackIdentity;
 use Fopost\Sdk\Model\SlackMember;
@@ -14,6 +19,7 @@ use Fopost\Sdk\Model\TelegramBotCommand;
 use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
+use Fopost\Sdk\Model\WebhookSubscription;
 use Fopost\Sdk\Undefined;
 
 /** $client->accounts(): the social accounts connected to a workspace. */
@@ -167,6 +173,122 @@ final class AccountsResource extends Resource
 
         return SlackIdentity::fromArray(self::unwrap(
             $this->http->request('PATCH', "/accounts/{$accountId}/slack/identity", $body === [] ? (object) [] : $body),
+        ));
+    }
+
+    // ─── Meta messaging settings (Facebook Pages, Instagram) ─────────
+
+    /** The prompts shown before the first message; networks without them answer 400. */
+    public function getIceBreakers(string $accountId): MetaIceBreakers
+    {
+        return MetaIceBreakers::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/messaging/ice-breakers"),
+        ));
+    }
+
+    /**
+     * Replace the ice breakers. Up to four.
+     *
+     * @param array<int, MetaIceBreaker|array{question: string, payload: string}> $iceBreakers
+     */
+    public function setIceBreakers(string $accountId, array $iceBreakers): MetaIceBreakers
+    {
+        $payload = array_map(
+            static fn (MetaIceBreaker|array $b): array => $b instanceof MetaIceBreaker
+                ? ['question' => $b->question, 'payload' => $b->payload]
+                : ['question' => $b['question'], 'payload' => $b['payload']],
+            array_values($iceBreakers),
+        );
+
+        return MetaIceBreakers::fromArray(self::unwrap(
+            $this->http->put("/accounts/{$accountId}/messaging/ice-breakers", ['ice_breakers' => $payload]),
+        ));
+    }
+
+    public function deleteIceBreakers(string $accountId): MetaIceBreakers
+    {
+        return MetaIceBreakers::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/messaging/ice-breakers"),
+        ));
+    }
+
+    /** The always-visible Messenger menu. Facebook Pages only. */
+    public function getPersistentMenu(string $accountId): MetaPersistentMenu
+    {
+        return MetaPersistentMenu::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/messaging/persistent-menu"),
+        ));
+    }
+
+    /**
+     * Replace the menu, one entry per locale, up to three items each.
+     *
+     * @param array<int, array<string, mixed>> $menu
+     */
+    public function setPersistentMenu(string $accountId, array $menu): MetaPersistentMenu
+    {
+        return MetaPersistentMenu::fromArray(self::unwrap(
+            $this->http->put(
+                "/accounts/{$accountId}/messaging/persistent-menu",
+                ['persistent_menu' => array_values($menu)],
+            ),
+        ));
+    }
+
+    public function deletePersistentMenu(string $accountId): MetaPersistentMenu
+    {
+        return MetaPersistentMenu::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/messaging/persistent-menu"),
+        ));
+    }
+
+    /** The text shown before a Messenger conversation starts. Facebook Pages only. */
+    public function getGreeting(string $accountId): MetaGreeting
+    {
+        return MetaGreeting::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/messaging/greeting"),
+        ));
+    }
+
+    /**
+     * Replace the greeting, one entry per locale, each up to 160 characters.
+     *
+     * @param array<int, MetaGreetingText|array{locale?: string, text: string}> $greeting
+     */
+    public function setGreeting(string $accountId, array $greeting): MetaGreeting
+    {
+        $payload = array_map(
+            static fn (MetaGreetingText|array $g): array => $g instanceof MetaGreetingText
+                ? ['locale' => $g->locale, 'text' => $g->text]
+                : ['locale' => $g['locale'] ?? 'default', 'text' => $g['text']],
+            array_values($greeting),
+        );
+
+        return MetaGreeting::fromArray(self::unwrap(
+            $this->http->put("/accounts/{$accountId}/messaging/greeting", ['greeting' => $payload]),
+        ));
+    }
+
+    public function deleteGreeting(string $accountId): MetaGreeting
+    {
+        return MetaGreeting::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/messaging/greeting"),
+        ));
+    }
+
+    /** What the network is delivering to the FoPost webhook for this account. */
+    public function getWebhookSubscription(string $accountId): WebhookSubscription
+    {
+        return WebhookSubscription::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/webhook-subscription"),
+        ));
+    }
+
+    /** Subscribe to every field this account needs, lapsed or not. */
+    public function resubscribeWebhook(string $accountId): WebhookSubscription
+    {
+        return WebhookSubscription::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/webhook-subscription"),
         ));
     }
 }
