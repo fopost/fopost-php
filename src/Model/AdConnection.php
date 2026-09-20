@@ -6,7 +6,7 @@ namespace Fopost\Sdk\Model;
 
 use DateTimeImmutable;
 
-/** A Meta Ads grant in a workspace. */
+/** An ad-network grant in a workspace. */
 final class AdConnection extends Model
 {
     private function __construct(

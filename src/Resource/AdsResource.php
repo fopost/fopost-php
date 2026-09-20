@@ -29,7 +29,7 @@ use Fopost\Sdk\Model\ReachEstimate;
 use Fopost\Sdk\Model\TargetingOption;
 
 /**
- * $client->ads(): Meta ads, audiences and lead forms.
+ * $client->ads(): ads, audiences and lead forms across ad networks.
  *
  * Every call needs the `ads` scope. boost(), create(), setStatus(), delete(), bulkSetStatus() and the
  * create, update, delete and duplicate calls on campaigns, ad sets and network ads spend money and
@@ -88,17 +88,31 @@ final class AdsResource extends Resource
         );
     }
 
-    /** The Meta login URL; the caller finishes it in a browser. Method is `business` or `user`. */
-    public function authorizeMeta(string $workspaceId, ?string $method = null, ?string $returnTo = null): string
-    {
+    /**
+     * The network's login URL; the caller finishes it in a browser. `$provider`
+     * names the ad network and defaults to `meta`; `$method` is the network's
+     * own login method, `business` or `user` on Meta.
+     */
+    public function authorize(
+        string $workspaceId,
+        string $provider = 'meta',
+        ?string $method = null,
+        ?string $returnTo = null,
+    ): string {
         $body = self::compact([
             'workspaceId' => $workspaceId,
             'method' => $method,
             'returnTo' => $returnTo,
         ]);
-        $result = self::unwrap($this->http->post('/ads/connections/meta/authorize', $body));
+        $result = self::unwrap($this->http->post("/ads/connections/{$provider}/authorize", $body));
 
         return is_array($result) && is_string($result['url'] ?? null) ? $result['url'] : '';
+    }
+
+    /** @deprecated Use authorize(), which takes a provider. */
+    public function authorizeMeta(string $workspaceId, ?string $method = null, ?string $returnTo = null): string
+    {
+        return $this->authorize($workspaceId, 'meta', $method, $returnTo);
     }
 
     /** Also deletes every ad record created through the connection. */

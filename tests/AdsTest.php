@@ -105,6 +105,14 @@ final class AdsTest extends TestCase
         $this->assertSame(['workspaceId' => 'w_1', 'returnTo' => '/ads'], $this->transport->lastJson());
         $this->assertSame('https://www.facebook.com/dialog/oauth?state=abc', $url);
 
+        // The provider is in the path, so a connection is not Meta-only.
+        $this->transport->push(200, ['data' => ['url' => 'https://www.pinterest.com/oauth/']]);
+        $this->client()->ads()->authorize('w_1', 'pinterest');
+        $this->assertSame(
+            'https://api.fopost.com/v1/ads/connections/pinterest/authorize',
+            $this->transport->last()['url'],
+        );
+
         $this->transport->push(200, ['message' => 'deleted']);
         $this->client()->ads()->deleteConnection('conn_1', 'w_1');
         $this->assertSame('DELETE', $this->transport->last()['method']);

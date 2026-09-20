@@ -240,7 +240,7 @@ $client->inbox()->rejectReply($approval->id);
 
 ## Ads
 
-Meta ads, audiences and lead forms. Needs the `ads` scope; `boost()`, `create()`, `setStatus()` and `delete()` spend money and also need `publish`. A boost or ad starts paused unless `paused: false` is passed.
+Ads, audiences and lead forms across ad networks. Needs the `ads` scope; `boost()`, `create()`, `setStatus()` and `delete()` spend money and also need `publish`. A boost or ad starts paused unless `paused: false` is passed.
 
 ```php
 $ads = $client->ads()->list($workspaceId);
