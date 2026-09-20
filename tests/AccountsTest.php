@@ -247,4 +247,120 @@ final class AccountsTest extends TestCase
             $this->assertSame('webhook_connection', $e->errorCode);
         }
     }
+
+    public function testDiscordChannelsAndSwitch(): void
+    {
+        $this->transport->push(200, ['data' => [
+            [
+                'id' => 'c2',
+                'name' => 'launches',
+                'type' => 0,
+                'parent_id' => null,
+                'nsfw' => false,
+                'is_current' => true,
+            ],
+        ]]);
+        $channels = $this->client()->accounts()->listDiscordChannels('a_1');
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/discord/channels', $this->transport->last()['url']);
+        $this->assertSame('c2', $channels[0]->id);
+        $this->assertTrue($channels[0]->isCurrent);
+
+        $this->transport->push(200, ['data' => ['id' => 'c2', 'name' => 'launches', 'is_current' => true]]);
+        $this->client()->accounts()->switchDiscordChannel('a_1', 'c2');
+        $this->assertSame('PATCH', $this->transport->last()['method']);
+        $this->assertSame(['channel_id' => 'c2'], $this->transport->lastJson());
+    }
+
+    public function testDiscordIdentityPartialUpdate(): void
+    {
+        $this->transport->push(200, ['data' => ['username' => 'Release Bot', 'avatar_url' => null]]);
+        $updated = $this->client()->accounts()->updateDiscordIdentity('a_1', username: 'Release Bot');
+        $this->assertSame('PATCH', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/discord/identity', $this->transport->last()['url']);
+        // Omitted fields stay off the wire, so Discord keeps them.
+        $this->assertSame(['username' => 'Release Bot'], $this->transport->lastJson());
+        $this->assertSame('Release Bot', $updated->username);
+    }
+
+    public function testDiscordEventRoundTrip(): void
+    {
+        $event = [
+            'id' => 'e1',
+            'name' => 'Launch stream',
+            'description' => null,
+            'channel_id' => null,
+            'location' => 'https://example.com/live',
+            'start_time' => '2026-10-01T18:00:00.000Z',
+            'end_time' => '2026-10-01T19:00:00.000Z',
+            'status' => 'scheduled',
+            'user_count' => 0,
+        ];
+
+        $this->transport->push(201, ['data' => $event]);
+        $created = $this->client()->accounts()->createDiscordEvent(
+            'a_1',
+            name: 'Launch stream',
+            startTime: '2026-10-01T18:00:00.000Z',
+            endTime: '2026-10-01T19:00:00.000Z',
+            location: 'https://example.com/live',
+        );
+        $this->assertSame('e1', $created->id);
+        $this->assertSame([
+            'name' => 'Launch stream',
+            'start_time' => '2026-10-01T18:00:00.000Z',
+            'end_time' => '2026-10-01T19:00:00.000Z',
+            'location' => 'https://example.com/live',
+        ], $this->transport->lastJson());
+
+        $this->transport->push(200, ['data' => [$event]]);
+        $this->assertSame('e1', $this->client()->accounts()->listDiscordEvents('a_1')[0]->id);
+
+        $this->transport->push(200, ['data' => ['status' => 'canceled'] + $event]);
+        $updated = $this->client()->accounts()->updateDiscordEvent('a_1', 'e1', status: 'canceled');
+        $this->assertSame('PATCH', $this->transport->last()['method']);
+        $this->assertSame(['status' => 'canceled'], $this->transport->lastJson());
+        $this->assertSame('canceled', $updated->status);
+
+        $this->transport->push(200, ['data' => ['deleted' => true]]);
+        $this->client()->accounts()->deleteDiscordEvent('a_1', 'e1');
+        $this->assertSame('DELETE', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/discord/events/e1', $this->transport->last()['url']);
+    }
+
+    public function testDiscordMembersRolesAndDm(): void
+    {
+        $this->transport->push(200, ['data' => [
+            ['id' => 'u7', 'username' => 'ada', 'is_bot' => false, 'roles' => ['r1']],
+        ]]);
+        $members = $this->client()->accounts()->listDiscordMembers('a_1', query: 'ada');
+        $this->assertStringContainsString('q=ada', $this->transport->last()['url']);
+        $this->assertSame('u7', $members[0]->id);
+        $this->assertSame(['r1'], $members[0]->roles);
+
+        $this->transport->push(200, ['data' => ['assigned' => true]]);
+        $this->client()->accounts()->addDiscordMemberRole('a_1', 'r1', 'u7');
+        $this->assertSame('PUT', $this->transport->last()['method']);
+        $this->assertSame(
+            'https://api.fopost.com/v1/accounts/a_1/discord/roles/r1/members/u7',
+            $this->transport->last()['url'],
+        );
+
+        $this->transport->push(201, ['data' => ['id' => 'm1', 'channel_id' => 'dm1']]);
+        $sent = $this->client()->accounts()->sendDiscordDm('a_1', 'u7', 'hi');
+        $this->assertSame('dm1', $sent->channelId);
+        $this->assertSame(['member_id' => 'u7', 'content' => 'hi'], $this->transport->lastJson());
+    }
+
+    public function testDiscordWebhookConnectionIsAnApiException(): void
+    {
+        $this->transport->push(409, ['error' => 'webhook_connection', 'message' => 'Upgrade it to the bot first']);
+
+        try {
+            $this->client()->accounts()->listDiscordChannels('a_1');
+            $this->fail('Expected an ApiException');
+        } catch (ApiException $e) {
+            $this->assertSame(409, $e->getStatus());
+            $this->assertSame('webhook_connection', $e->errorCode);
+        }
+    }
 }
