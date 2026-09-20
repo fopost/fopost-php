@@ -53,6 +53,8 @@ final class InboxItem extends Model
         public readonly ?bool $canSendMedia,
         public readonly ?bool $canQuickReply,
         public readonly ?bool $canPrivateReply,
+        /** The platform's own state: published, held, spam or rejected. */
+        public readonly ?string $moderationStatus,
         public readonly ?array $post,
         public readonly ?array $postContext,
         public readonly ?array $account,
@@ -101,6 +103,7 @@ final class InboxItem extends Model
             self::bool($data, 'can_send_media'),
             self::bool($data, 'can_quick_reply'),
             self::bool($data, 'can_private_reply'),
+            self::str($data, 'moderation_status'),
             self::nested($data, 'post'),
             self::nested($data, 'post_context'),
             self::nested($data, 'account'),

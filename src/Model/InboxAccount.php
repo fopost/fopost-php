@@ -20,6 +20,8 @@ final class InboxAccount extends Model
         public readonly ?bool $dmSupported,
         public readonly ?string $dmPendingReason,
         public readonly ?bool $canStartConversation,
+        /** The grant predates a permission the inbox needs; reconnect once. */
+        public readonly ?bool $reconnectRequired,
     ) {
         parent::__construct($raw);
     }
@@ -41,6 +43,7 @@ final class InboxAccount extends Model
             self::bool($data, 'dm_supported'),
             self::str($data, 'dm_pending_reason'),
             self::bool($data, 'can_start_conversation'),
+            self::bool($data, 'reconnect_required'),
         );
     }
 }
