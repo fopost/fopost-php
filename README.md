@@ -278,6 +278,107 @@ foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
 $client->inbox()->rejectReply($approval->id);
 ```
 
+## Contacts
+
+The people behind the inbox. A contact is one human however many handles they write from: an inbound item files its author, a reply files whoever you answered, and both fold into whatever is already on file. Needs the `inbox` scope.
+
+```php
+use Fopost\Sdk\Model\ContactChannel;
+
+$page = $client->contacts()->list($workspaceId, search: 'ada');
+foreach ($page as $contact) {
+    echo $contact->displayName, ' — ', count($contact->channels), ' handles', PHP_EOL;
+}
+echo $page->meta->total;
+
+$contact = $client->contacts()->get($contactId);
+
+// Folds into whoever already holds the first channel, so this cannot duplicate someone.
+$contact = $client->contacts()->create(
+    $workspaceId,
+    [ContactChannel::make('x', 'ada_writes')],
+    displayName: 'Ada Okafor',
+    fields: ['plan_tier' => 'Pro'],
+);
+
+$client->contacts()->update($contact->id, fields: ['region' => null]); // null clears a field
+$client->contacts()->delete($contact->id);                             // the messages stay
+
+// The threads this person appears in, newest first.
+foreach ($client->contacts()->conversations($contact->id) as $thread) {
+    echo $thread->platform, ' ', $thread->messages, ' messages', PHP_EOL;
+}
+
+// platform and handle are required columns; any other column is a custom field key.
+$result = $client->contacts()->import($workspaceId, "platform,handle\nx,ada_writes");
+echo $result->created, ' created, ', $result->merged, ' merged';
+print_r($result->unknownColumns);
+
+// The columns your workspace keeps.
+$fields = $client->contacts()->listFields($workspaceId);
+$field = $client->contacts()->createField($workspaceId, 'plan_tier', 'Plan Tier', 'select', ['Free', 'Pro']);
+$client->contacts()->updateField($field->id, name: 'Tier');
+$client->contacts()->deleteField($field->id);   // removes every answer to it
+
+// Volume and median reply time per thread. Needs the `analytics` scope.
+$report = $client->contacts()->conversationAnalytics(days: 30, sort: 'slowest');
+echo $report->conversations[0]->medianResponseMinutes;
+```
+
+## Broadcasts
+
+One message into every conversation you already have with a segment of your contacts. Nothing is sent into a closed messaging window: Messenger and Instagram take a business-initiated message only within 24 hours of the contact's last one, so recipients outside it come back skipped with `window_closed` rather than attempted. Telegram, Slack, Bluesky and Reddit have no window.
+
+Reading needs the `inbox` scope; `send()` and `cancel()` also need `publish`.
+
+```php
+$page = $client->broadcasts()->list($workspaceId, status: 'sent');
+foreach ($page as $broadcast) {
+    echo $broadcast->name, ' — ', $broadcast->counts?->sent, ' sent', PHP_EOL;
+}
+
+$broadcast = $client->broadcasts()->create(
+    $workspaceId,
+    $accountId,
+    'September check-in',
+    'New colours just landed. Want a look?',
+    audience: ['platforms' => ['instagram']],
+);
+
+// The recipients count is how many contacts matched, not how many will be
+// messaged — the messaging window decides that.
+$result = $client->broadcasts()->send($broadcast->id);
+
+// Who was skipped, and why.
+foreach ($client->broadcasts()->recipients($broadcast->id, status: 'skipped') as $recipient) {
+    echo $recipient->displayName, ': ', $recipient->skipReason, PHP_EOL;
+}
+```
+
+## Sequences
+
+A series of messages, each a delay after the one before, walked per enrolled contact. The messaging window applies to every step: one that comes due outside it is skipped rather than sent, and the enrollment carries on.
+
+```php
+use Fopost\Sdk\Model\SequenceStep;
+
+$sequence = $client->sequences()->create($workspaceId, $accountId, 'Welcome', [
+    SequenceStep::make(0, 'Thanks for the follow — anything I can help with?'),
+    SequenceStep::make(48, 'Here is what people usually ask us first.'),
+]);
+
+// By id, or by the same audience filter a broadcast takes.
+$client->sequences()->enroll($sequence->id, [$contactId]);
+$client->sequences()->enroll($sequence->id, audience: ['platforms' => ['telegram']]);
+
+// Nothing further fires for them.
+$client->sequences()->unenroll($sequence->id, [$contactId]);
+
+foreach ($client->sequences()->enrollments($sequence->id) as $enrollment) {
+    echo $enrollment->displayName, ' — step ', $enrollment->step, PHP_EOL;
+}
+```
+
 ## Knowledge
 
 What the workspace has told FoPost about itself. Retrieval over these sources
