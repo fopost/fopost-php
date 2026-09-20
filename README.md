@@ -135,9 +135,27 @@ $members = $client->accounts()->listSlackMembers('acc_1');
 $identity = $client->accounts()->getSlackIdentity('acc_1');
 $client->accounts()->updateSlackIdentity('acc_1', username: 'Launch Bot', iconEmoji: ':rocket:');
 
+// Meta messaging settings. Ice breakers on Facebook Pages and Instagram; the menu and
+// greeting on Pages only. A network without a field answers 400.
+$client->accounts()->setIceBreakers('acc_1', [
+    ['question' => 'What are your hours?', 'payload' => 'HOURS'],
+]);
+$client->accounts()->setPersistentMenu('acc_1', [[
+    'locale' => 'default',
+    'call_to_actions' => [['type' => 'postback', 'title' => 'Talk to Us', 'payload' => 'HUMAN']],
+]]);
+$client->accounts()->setGreeting('acc_1', [['text' => 'Hi! Ask us anything.']]);
+
+// Is the network still delivering events for this account?
+$subscription = $client->accounts()->getWebhookSubscription('acc_1');
+if (!$subscription->subscribed) {
+    $client->accounts()->resubscribeWebhook('acc_1');
+}
+
 // Discord (bot connections): the channel, the bot's identity, and the server itself.
+// Discord ids are snowflakes; take them from the list calls rather than typing one.
 $channels = $client->accounts()->listDiscordChannels('acc_2');
-$client->accounts()->switchDiscordChannel('acc_2', 'c2');
+$client->accounts()->switchDiscordChannel('acc_2', $channels[0]->id);
 $client->accounts()->updateDiscordIdentity('acc_2', username: 'Release Bot');
 
 $client->accounts()->createDiscordEvent(
@@ -248,6 +266,10 @@ $client->inbox()->reply($item->id, mediaIds: [$mediaId], quickReplies: ['Yes', '
 $started = $client->inbox()->startConversation('Hi there', accountId: $accountId, handle: 'sam');
 $client->inbox()->startConversation('Sent you the details', commentId: $item->id);
 $client->inbox()->setTyping($started->conversationId, $accountId);
+
+// Messenger hand-over: pass the thread to another Meta app, or take it back with no app id.
+$client->inbox()->handover($started->conversationId, $accountId, '263902037430900');
+$client->inbox()->handover($started->conversationId, $accountId);
 
 // Replies an automation or the agent drafted, waiting for a person.
 foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
