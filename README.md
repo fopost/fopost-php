@@ -748,3 +748,27 @@ Questions and issues: [fopost.com/contact](https://fopost.com/contact) or the [i
 ## License
 
 MIT. Copyright Porter Bridge, LLC.
+
+### Google Ads
+
+Campaigns, ad groups, ads, audiences and insights are on `$client->ads()` and dispatch by
+connection. What only Google has is under `$client->ads()->google()`:
+
+```php
+$keywords = $client->ads()->google()->keywords('c4d5e6f7-…', '1234567890');
+
+$client->ads()->google()->createKeyword(
+    workspaceId: '7d2b8c11-…',
+    connectionId: 'c4d5e6f7-…',
+    customerId: '1234567890',
+    adGroupId: '1234567890~adGroup~77',
+    text: 'running shoes',
+    matchType: 'EXACT',
+);
+```
+
+Also `keywordIdeas()`, `keywordMetrics()`, `searchTerms()`, `bidStrategies()`,
+`adSchedule()` and `setAdSchedule()`, the negative keyword lists, `assets()` and
+`assetGroups()`, `localServicesLeads()`, the conversion methods, and `query()` for a raw
+read-only GAQL SELECT. Changes need the `publish` scope as well as `ads`; the customer id
+has to name an account the connection's grant reaches.
