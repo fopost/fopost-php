@@ -149,6 +149,11 @@ final class HttpClient
         return $this->request('PUT', $path, $json);
     }
 
+    public function patch(string $path, mixed $json = null): mixed
+    {
+        return $this->request('PATCH', $path, $json);
+    }
+
     public function delete(string $path, mixed $json = null): mixed
     {
         return $this->request('DELETE', $path, $json);
