@@ -29,7 +29,7 @@ use Fopost\Sdk\Model\ReachEstimate;
 use Fopost\Sdk\Model\TargetingOption;
 
 /**
- * $client->ads(): Meta ads, audiences and lead forms.
+ * $client->ads(): ads, audiences and lead forms across the ad networks.
  *
  * Every call needs the `ads` scope. boost(), create(), setStatus(), delete(), bulkSetStatus() and the
  * create, update, delete and duplicate calls on campaigns, ad sets and network ads spend money and
@@ -38,6 +38,14 @@ use Fopost\Sdk\Model\TargetingOption;
  */
 final class AdsResource extends Resource
 {
+    private ?GoogleAdsResource $google = null;
+
+    /** The Search surface no other network has: keywords, assets, conversions, GAQL. */
+    public function google(): GoogleAdsResource
+    {
+        return $this->google ??= new GoogleAdsResource($this->http);
+    }
+
     /**
      * Boosts and ads created through FoPost, with insights from their last refresh.
      *
@@ -97,6 +105,18 @@ final class AdsResource extends Resource
             'returnTo' => $returnTo,
         ]);
         $result = self::unwrap($this->http->post('/ads/connections/meta/authorize', $body));
+
+        return is_array($result) && is_string($result['url'] ?? null) ? $result['url'] : '';
+    }
+
+    /** The Google login URL; the caller finishes it in their own browser. */
+    public function authorizeGoogle(string $workspaceId, ?string $returnTo = null): string
+    {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'returnTo' => $returnTo,
+        ]);
+        $result = self::unwrap($this->http->post('/ads/connections/google/authorize', $body));
 
         return is_array($result) && is_string($result['url'] ?? null) ? $result['url'] : '';
     }
