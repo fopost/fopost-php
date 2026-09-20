@@ -6,6 +6,19 @@ namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\AccountMove;
 use Fopost\Sdk\Model\AccountRename;
+use Fopost\Sdk\Model\DiscordChannel;
+use Fopost\Sdk\Model\DiscordIdentity;
+use Fopost\Sdk\Model\DiscordMember;
+use Fopost\Sdk\Model\DiscordMessage;
+use Fopost\Sdk\Model\DiscordMessageRef;
+use Fopost\Sdk\Model\DiscordRole;
+use Fopost\Sdk\Model\DiscordScheduledEvent;
+use Fopost\Sdk\Model\DiscordThread;
+use Fopost\Sdk\Model\MetaGreeting;
+use Fopost\Sdk\Model\MetaGreetingText;
+use Fopost\Sdk\Model\MetaIceBreaker;
+use Fopost\Sdk\Model\MetaIceBreakers;
+use Fopost\Sdk\Model\MetaPersistentMenu;
 use Fopost\Sdk\Model\SlackChannel;
 use Fopost\Sdk\Model\SlackIdentity;
 use Fopost\Sdk\Model\SlackMember;
@@ -14,6 +27,7 @@ use Fopost\Sdk\Model\TelegramBotCommand;
 use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
+use Fopost\Sdk\Model\WebhookSubscription;
 use Fopost\Sdk\Undefined;
 
 /** $client->accounts(): the social accounts connected to a workspace. */
@@ -168,5 +182,411 @@ final class AccountsResource extends Resource
         return SlackIdentity::fromArray(self::unwrap(
             $this->http->request('PATCH', "/accounts/{$accountId}/slack/identity", $body === [] ? (object) [] : $body),
         ));
+    }
+
+    // ─── Meta messaging settings (Facebook Pages, Instagram) ─────────
+
+    /** The prompts shown before the first message; networks without them answer 400. */
+    public function getIceBreakers(string $accountId): MetaIceBreakers
+    {
+        return MetaIceBreakers::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/messaging/ice-breakers"),
+        ));
+    }
+
+    /**
+     * Replace the ice breakers. Up to four.
+     *
+     * @param array<int, MetaIceBreaker|array{question: string, payload: string}> $iceBreakers
+     */
+    public function setIceBreakers(string $accountId, array $iceBreakers): MetaIceBreakers
+    {
+        $payload = array_map(
+            static fn (MetaIceBreaker|array $b): array => $b instanceof MetaIceBreaker
+                ? ['question' => $b->question, 'payload' => $b->payload]
+                : ['question' => $b['question'], 'payload' => $b['payload']],
+            array_values($iceBreakers),
+        );
+
+        return MetaIceBreakers::fromArray(self::unwrap(
+            $this->http->put("/accounts/{$accountId}/messaging/ice-breakers", ['ice_breakers' => $payload]),
+        ));
+    }
+
+    public function deleteIceBreakers(string $accountId): MetaIceBreakers
+    {
+        return MetaIceBreakers::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/messaging/ice-breakers"),
+        ));
+    }
+
+    /** The always-visible Messenger menu. Facebook Pages only. */
+    public function getPersistentMenu(string $accountId): MetaPersistentMenu
+    {
+        return MetaPersistentMenu::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/messaging/persistent-menu"),
+        ));
+    }
+
+    /**
+     * Replace the menu, one entry per locale, up to three items each.
+     *
+     * @param array<int, array<string, mixed>> $menu
+     */
+    public function setPersistentMenu(string $accountId, array $menu): MetaPersistentMenu
+    {
+        return MetaPersistentMenu::fromArray(self::unwrap(
+            $this->http->put(
+                "/accounts/{$accountId}/messaging/persistent-menu",
+                ['persistent_menu' => array_values($menu)],
+            ),
+        ));
+    }
+
+    public function deletePersistentMenu(string $accountId): MetaPersistentMenu
+    {
+        return MetaPersistentMenu::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/messaging/persistent-menu"),
+        ));
+    }
+
+    /** The text shown before a Messenger conversation starts. Facebook Pages only. */
+    public function getGreeting(string $accountId): MetaGreeting
+    {
+        return MetaGreeting::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/messaging/greeting"),
+        ));
+    }
+
+    /**
+     * Replace the greeting, one entry per locale, each up to 160 characters.
+     *
+     * @param array<int, MetaGreetingText|array{locale?: string, text: string}> $greeting
+     */
+    public function setGreeting(string $accountId, array $greeting): MetaGreeting
+    {
+        $payload = array_map(
+            static fn (MetaGreetingText|array $g): array => $g instanceof MetaGreetingText
+                ? ['locale' => $g->locale, 'text' => $g->text]
+                : ['locale' => $g['locale'] ?? 'default', 'text' => $g['text']],
+            array_values($greeting),
+        );
+
+        return MetaGreeting::fromArray(self::unwrap(
+            $this->http->put("/accounts/{$accountId}/messaging/greeting", ['greeting' => $payload]),
+        ));
+    }
+
+    public function deleteGreeting(string $accountId): MetaGreeting
+    {
+        return MetaGreeting::fromArray(self::unwrap(
+            $this->http->delete("/accounts/{$accountId}/messaging/greeting"),
+        ));
+    }
+
+    /** What the network is delivering to the FoPost webhook for this account. */
+    public function getWebhookSubscription(string $accountId): WebhookSubscription
+    {
+        return WebhookSubscription::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/webhook-subscription"),
+        ));
+    }
+
+    /** Subscribe to every field this account needs, lapsed or not. */
+    public function resubscribeWebhook(string $accountId): WebhookSubscription
+    {
+        return WebhookSubscription::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/webhook-subscription"),
+        ));
+    }
+
+    // ── Discord (bot connections; a webhook one answers 409 webhook_connection) ──
+
+    /**
+     * Text channels the bot can post to in the connected server.
+     *
+     * @return array<int, DiscordChannel>
+     */
+    public function listDiscordChannels(string $accountId): array
+    {
+        return DiscordChannel::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/discord/channels")));
+    }
+
+    /** Move the account to another channel in the same server. */
+    public function switchDiscordChannel(string $accountId, string $channelId): DiscordChannel
+    {
+        return DiscordChannel::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/accounts/{$accountId}/discord/channels/current",
+            ['channel_id' => $channelId],
+        )));
+    }
+
+    public function getDiscordIdentity(string $accountId): DiscordIdentity
+    {
+        return DiscordIdentity::fromArray(self::unwrap($this->http->get("/accounts/{$accountId}/discord/identity")));
+    }
+
+    /** Set the bot's nickname and avatar: omitted keeps a field, null clears it. */
+    public function updateDiscordIdentity(
+        string $accountId,
+        string|null|Undefined $username = Undefined::Value,
+        string|null|Undefined $avatarUrl = Undefined::Value,
+    ): DiscordIdentity {
+        $body = [];
+        foreach (['username' => $username, 'avatar_url' => $avatarUrl] as $key => $value) {
+            if (!Undefined::is($value)) {
+                $body[$key] = $value;
+            }
+        }
+
+        return DiscordIdentity::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/accounts/{$accountId}/discord/identity",
+            $body === [] ? (object) [] : $body,
+        )));
+    }
+
+    /**
+     * Pinned messages in the account's channel.
+     *
+     * @return array<int, DiscordMessage>
+     */
+    public function listDiscordPins(string $accountId): array
+    {
+        return DiscordMessage::listFrom(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/discord/messages/pinned"),
+        ));
+    }
+
+    public function deleteDiscordMessage(string $accountId, string $messageId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/discord/messages/{$messageId}");
+    }
+
+    public function pinDiscordMessage(string $accountId, string $messageId): void
+    {
+        $this->http->post("/accounts/{$accountId}/discord/messages/{$messageId}/pin");
+    }
+
+    public function unpinDiscordMessage(string $accountId, string $messageId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/discord/messages/{$messageId}/pin");
+    }
+
+    /** Publish an announcement-channel message to every server following it. */
+    public function crosspostDiscordMessage(string $accountId, string $messageId): DiscordMessageRef
+    {
+        return DiscordMessageRef::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/discord/messages/{$messageId}/crosspost"),
+        ));
+    }
+
+    /** Start a thread on a message; the duration is 60, 1440, 4320 or 10080 minutes. */
+    public function createDiscordThread(
+        string $accountId,
+        string $messageId,
+        string $name,
+        ?int $autoArchiveDuration = null,
+    ): DiscordThread {
+        $body = ['name' => $name];
+        if ($autoArchiveDuration !== null) {
+            $body['auto_archive_duration'] = $autoArchiveDuration;
+        }
+
+        return DiscordThread::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/discord/messages/{$messageId}/thread", $body),
+        ));
+    }
+
+    /** Send one message to a member of the server. */
+    public function sendDiscordDm(string $accountId, string $memberId, string $content): DiscordMessageRef
+    {
+        return DiscordMessageRef::fromArray(self::unwrap($this->http->post(
+            "/accounts/{$accountId}/discord/dm",
+            ['member_id' => $memberId, 'content' => $content],
+        )));
+    }
+
+    /**
+     * The server's scheduled events.
+     *
+     * @return array<int, DiscordScheduledEvent>
+     */
+    public function listDiscordEvents(string $accountId): array
+    {
+        return DiscordScheduledEvent::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/discord/events")));
+    }
+
+    public function getDiscordEvent(string $accountId, string $eventId): DiscordScheduledEvent
+    {
+        return DiscordScheduledEvent::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/discord/events/{$eventId}"),
+        ));
+    }
+
+    /** Give $channelId (a voice or stage channel), or $location with an $endTime. */
+    public function createDiscordEvent(
+        string $accountId,
+        string $name,
+        string $startTime,
+        ?string $endTime = null,
+        ?string $description = null,
+        ?string $channelId = null,
+        ?string $location = null,
+    ): DiscordScheduledEvent {
+        $body = self::discordEventBody([
+            'name' => $name,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'description' => $description,
+            'channel_id' => $channelId,
+            'location' => $location,
+        ]);
+
+        return DiscordScheduledEvent::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/discord/events", $body),
+        ));
+    }
+
+    /** Only the fields you name are sent; Discord keeps the rest. */
+    public function updateDiscordEvent(
+        string $accountId,
+        string $eventId,
+        ?string $name = null,
+        ?string $startTime = null,
+        ?string $endTime = null,
+        ?string $description = null,
+        ?string $channelId = null,
+        ?string $location = null,
+        ?string $status = null,
+    ): DiscordScheduledEvent {
+        $body = self::discordEventBody([
+            'name' => $name,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'description' => $description,
+            'channel_id' => $channelId,
+            'location' => $location,
+            'status' => $status,
+        ]);
+
+        return DiscordScheduledEvent::fromArray(self::unwrap(
+            $this->http->request(
+                'PATCH',
+                "/accounts/{$accountId}/discord/events/{$eventId}",
+                $body === [] ? (object) [] : $body,
+            ),
+        ));
+    }
+
+    public function deleteDiscordEvent(string $accountId, string $eventId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/discord/events/{$eventId}");
+    }
+
+    /**
+     * The server's roster, or the members matching $query by name prefix.
+     *
+     * @return array<int, DiscordMember>
+     */
+    public function listDiscordMembers(string $accountId, ?string $query = null, ?int $limit = null): array
+    {
+        return DiscordMember::listFrom(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/discord/members", ['q' => $query, 'limit' => $limit]),
+        ));
+    }
+
+    public function getDiscordMember(string $accountId, string $memberId): DiscordMember
+    {
+        return DiscordMember::fromArray(self::unwrap(
+            $this->http->get("/accounts/{$accountId}/discord/members/{$memberId}"),
+        ));
+    }
+
+    /**
+     * The server's roles, highest first.
+     *
+     * @return array<int, DiscordRole>
+     */
+    public function listDiscordRoles(string $accountId): array
+    {
+        return DiscordRole::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/discord/roles")));
+    }
+
+    public function createDiscordRole(
+        string $accountId,
+        string $name,
+        ?int $color = null,
+        ?bool $hoist = null,
+        ?bool $mentionable = null,
+        ?string $permissions = null,
+    ): DiscordRole {
+        $body = self::discordRoleBody($name, $color, $hoist, $mentionable, $permissions);
+
+        return DiscordRole::fromArray(self::unwrap($this->http->post("/accounts/{$accountId}/discord/roles", $body)));
+    }
+
+    public function updateDiscordRole(
+        string $accountId,
+        string $roleId,
+        ?string $name = null,
+        ?int $color = null,
+        ?bool $hoist = null,
+        ?bool $mentionable = null,
+        ?string $permissions = null,
+    ): DiscordRole {
+        $body = self::discordRoleBody($name, $color, $hoist, $mentionable, $permissions);
+
+        return DiscordRole::fromArray(self::unwrap(
+            $this->http->request(
+                'PATCH',
+                "/accounts/{$accountId}/discord/roles/{$roleId}",
+                $body === [] ? (object) [] : $body,
+            ),
+        ));
+    }
+
+    public function deleteDiscordRole(string $accountId, string $roleId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/discord/roles/{$roleId}");
+    }
+
+    public function addDiscordMemberRole(string $accountId, string $roleId, string $memberId): void
+    {
+        $this->http->request('PUT', "/accounts/{$accountId}/discord/roles/{$roleId}/members/{$memberId}");
+    }
+
+    public function removeDiscordMemberRole(string $accountId, string $roleId, string $memberId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/discord/roles/{$roleId}/members/{$memberId}");
+    }
+
+    /**
+     * @param array<string, string|null> $fields
+     * @return array<string, string>
+     */
+    private static function discordEventBody(array $fields): array
+    {
+        return array_filter($fields, static fn (?string $value): bool => $value !== null);
+    }
+
+    /** @return array<string, mixed> */
+    private static function discordRoleBody(
+        ?string $name,
+        ?int $color,
+        ?bool $hoist,
+        ?bool $mentionable,
+        ?string $permissions,
+    ): array {
+        $body = [
+            'name' => $name,
+            'color' => $color,
+            'hoist' => $hoist,
+            'mentionable' => $mentionable,
+            'permissions' => $permissions,
+        ];
+
+        return array_filter($body, static fn (mixed $value): bool => $value !== null);
     }
 }

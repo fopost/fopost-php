@@ -13,6 +13,7 @@ use Fopost\Sdk\Resource\AiResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ContactsResource;
 use Fopost\Sdk\Resource\InboxResource;
+use Fopost\Sdk\Resource\KnowledgeResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
@@ -47,6 +48,8 @@ final class Client
     private readonly ContactsResource $contacts;
     private readonly BroadcastsResource $broadcasts;
     private readonly SequencesResource $sequences;
+
+    private readonly KnowledgeResource $knowledge;
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
@@ -77,6 +80,7 @@ final class Client
         $this->contacts = new ContactsResource($this->http);
         $this->broadcasts = new BroadcastsResource($this->http);
         $this->sequences = new SequencesResource($this->http);
+        $this->knowledge = new KnowledgeResource($this->http);
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
@@ -110,6 +114,11 @@ final class Client
     public function ai(): AiResource
     {
         return $this->ai;
+    }
+
+    public function knowledge(): KnowledgeResource
+    {
+        return $this->knowledge;
     }
 
     public function inbox(): InboxResource
