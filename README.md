@@ -172,6 +172,25 @@ $client->accounts()->addDiscordMemberRole('acc_2', $role->id, $members[0]->id);
 $client->accounts()->sendDiscordDm('acc_2', $members[0]->id, 'Welcome aboard');
 ```
 
+## Google Business Profile
+
+Manage a connected Business Profile location: the profile, attributes, food menus, services, photos, action links, verification and performance.
+
+```php
+$location = $client->googleBusiness()->getLocation('acc_1');
+$client->googleBusiness()->updateLocation('acc_1', title: 'Corner Bakery', websiteUri: 'https://yourbrand.com');
+
+// Photos come from your media library, JPEG or PNG.
+$client->googleBusiness()->addMedia('acc_1', $mediaId, 'INTERIOR');
+
+$client->googleBusiness()->createPlaceAction('acc_1', 'https://yourbrand.com/book', 'APPOINTMENT');
+
+$metrics = $client->googleBusiness()->getPerformance('acc_1', '2026-09-01', '2026-09-30');
+$terms = $client->googleBusiness()->getSearchKeywords('acc_1', '2026-08-01', '2026-09-01');
+```
+
+Responses relay Google's own shape as plain arrays. Reads need the `accounts` scope, writes `publish` as well. Every call fails with a 503 `configuration_error` until Google grants the deployment Business Profile API access.
+
 ## Account groups
 
 ```php
