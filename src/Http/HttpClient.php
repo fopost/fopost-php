@@ -90,19 +90,25 @@ final class HttpClient
     {
         $url = str_contains($path, '://') ? $path : $this->baseUrl . '/' . ltrim($path, '/');
 
-        $clean = [];
+        $pairs = [];
         foreach ($params ?? [] as $key => $value) {
             if ($value === null) {
                 continue;
             }
-            if (is_bool($value)) {
-                $value = $value ? 'true' : 'false';
+            // A list repeats the bare parameter; http_build_query would index
+            // it as `key[0]=`, which the API reads as a different name.
+            foreach (is_array($value) ? $value : [$value] as $item) {
+                if (is_bool($item)) {
+                    $item = $item ? 'true' : 'false';
+                }
+                // urlencode, not rawurlencode: http_build_query spelt a space
+                // as '+', and the existing callers' URLs are asserted that way.
+                $pairs[] = urlencode((string) $key) . '=' . urlencode((string) $item);
             }
-            $clean[$key] = $value;
         }
 
-        if ($clean !== []) {
-            $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($clean);
+        if ($pairs !== []) {
+            $url .= (str_contains($url, '?') ? '&' : '?') . implode('&', $pairs);
         }
 
         return $url;
@@ -147,6 +153,11 @@ final class HttpClient
     public function put(string $path, mixed $json = null): mixed
     {
         return $this->request('PUT', $path, $json);
+    }
+
+    public function patch(string $path, mixed $json = null): mixed
+    {
+        return $this->request('PATCH', $path, $json);
     }
 
     public function delete(string $path, mixed $json = null): mixed
