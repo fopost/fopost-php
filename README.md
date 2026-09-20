@@ -285,6 +285,60 @@ $report = $client->contacts()->conversationAnalytics(days: 30, sort: 'slowest');
 echo $report->conversations[0]->medianResponseMinutes;
 ```
 
+## Broadcasts
+
+One message into every conversation you already have with a segment of your contacts. Nothing is sent into a closed messaging window: Messenger and Instagram take a business-initiated message only within 24 hours of the contact's last one, so recipients outside it come back skipped with `window_closed` rather than attempted. Telegram, Slack, Bluesky and Reddit have no window.
+
+Reading needs the `inbox` scope; `send()` and `cancel()` also need `publish`.
+
+```php
+$page = $client->broadcasts()->list($workspaceId, status: 'sent');
+foreach ($page as $broadcast) {
+    echo $broadcast->name, ' — ', $broadcast->counts?->sent, ' sent', PHP_EOL;
+}
+
+$broadcast = $client->broadcasts()->create(
+    $workspaceId,
+    $accountId,
+    'September check-in',
+    'New colours just landed. Want a look?',
+    audience: ['platforms' => ['instagram']],
+);
+
+// The recipients count is how many contacts matched, not how many will be
+// messaged — the messaging window decides that.
+$result = $client->broadcasts()->send($broadcast->id);
+
+// Who was skipped, and why.
+foreach ($client->broadcasts()->recipients($broadcast->id, status: 'skipped') as $recipient) {
+    echo $recipient->displayName, ': ', $recipient->skipReason, PHP_EOL;
+}
+```
+
+## Sequences
+
+A series of messages, each a delay after the one before, walked per enrolled contact. The messaging window applies to every step: one that comes due outside it is skipped rather than sent, and the enrollment carries on.
+
+```php
+use Fopost\Sdk\Model\SequenceStep;
+
+$sequence = $client->sequences()->create($workspaceId, $accountId, 'Welcome', [
+    SequenceStep::make(0, 'Thanks for the follow — anything I can help with?'),
+    SequenceStep::make(48, 'Here is what people usually ask us first.'),
+]);
+
+// By id, or by the same audience filter a broadcast takes.
+$client->sequences()->enroll($sequence->id, [$contactId]);
+$client->sequences()->enroll($sequence->id, audience: ['platforms' => ['telegram']]);
+
+// Nothing further fires for them.
+$client->sequences()->unenroll($sequence->id, [$contactId]);
+
+foreach ($client->sequences()->enrollments($sequence->id) as $enrollment) {
+    echo $enrollment->displayName, ' — step ', $enrollment->step, PHP_EOL;
+}
+```
+
 ## Ads
 
 Meta ads, audiences and lead forms. Needs the `ads` scope; `boost()`, `create()`, `setStatus()` and `delete()` spend money and also need `publish`. A boost or ad starts paused unless `paused: false` is passed.
