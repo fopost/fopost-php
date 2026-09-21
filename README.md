@@ -113,6 +113,12 @@ $account = $client->accounts()->get('acc_1');
 $health = $client->accounts()->health('acc_1');
 $client->accounts()->disconnect('acc_1');
 
+// The numbers only this account's network reports, in its own vocabulary.
+$metrics = $client->accounts()->platformMetrics('acc_1');
+foreach ($metrics->account->metrics as $row) {
+    echo "{$row->label}: {$row->value}\n";
+}
+
 // Rename; null restores the platform name.
 $client->accounts()->update('acc_1', 'Brand HQ');
 $client->accounts()->move('acc_1', $otherWorkspaceId);
