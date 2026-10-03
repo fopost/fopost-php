@@ -12,6 +12,8 @@ use Fopost\Sdk\Model\GoogleConversionAction;
 use Fopost\Sdk\Model\GoogleKeyword;
 use Fopost\Sdk\Model\GoogleKeywordIdea;
 use Fopost\Sdk\Model\GoogleLocalServicesLead;
+use Fopost\Sdk\Model\GoogleOptimizationScore;
+use Fopost\Sdk\Model\GoogleRecommendation;
 use Fopost\Sdk\Model\GoogleSearchTerm;
 use Fopost\Sdk\Model\GoogleSharedSet;
 
@@ -444,6 +446,75 @@ final class GoogleAdsResource extends Resource
             '/ads/google/local-services',
             self::params($connectionId, $customerId, $workspaceId, ['since' => $since, 'until' => $until]),
         )));
+    }
+
+    // ── Recommendations ──
+
+    /**
+     * Google's own read on what the account should change next.
+     *
+     * @param array<int, string> $types narrows to those recommendation types
+     * @return array<int, GoogleRecommendation>
+     */
+    public function recommendations(
+        string $connectionId,
+        string $customerId,
+        array $types = [],
+        ?string $workspaceId = null,
+    ): array {
+        $extra = $types === [] ? [] : ['types' => implode(',', $types)];
+
+        return GoogleRecommendation::listFrom(self::unwrap($this->http->get(
+            '/ads/google/recommendations',
+            self::params($connectionId, $customerId, $workspaceId, $extra),
+        )));
+    }
+
+    /** The account's score and weight, and the score of each live campaign. */
+    public function optimizationScore(
+        string $connectionId,
+        string $customerId,
+        ?string $workspaceId = null,
+    ): GoogleOptimizationScore {
+        return GoogleOptimizationScore::fromArray(self::unwrap($this->http->get(
+            '/ads/google/optimization-score',
+            self::params($connectionId, $customerId, $workspaceId),
+        )));
+    }
+
+    /**
+     * Applies each one, which changes what the live account serves or bids, and
+     * reports how many landed. Needs `publish` as well as `ads`.
+     *
+     * @param array<int, string> $ids
+     */
+    public function applyRecommendations(
+        string $workspaceId,
+        string $connectionId,
+        string $customerId,
+        array $ids,
+    ): int {
+        $body = self::scope($workspaceId, $connectionId, $customerId) + ['ids' => array_values($ids)];
+        $result = self::unwrap($this->http->post('/ads/google/recommendations/apply', $body));
+
+        return is_array($result) && is_int($result['applied'] ?? null) ? $result['applied'] : 0;
+    }
+
+    /**
+     * Hides each one so Google stops surfacing it. Needs `publish` as well as `ads`.
+     *
+     * @param array<int, string> $ids
+     */
+    public function dismissRecommendations(
+        string $workspaceId,
+        string $connectionId,
+        string $customerId,
+        array $ids,
+    ): int {
+        $body = self::scope($workspaceId, $connectionId, $customerId) + ['ids' => array_values($ids)];
+        $result = self::unwrap($this->http->post('/ads/google/recommendations/dismiss', $body));
+
+        return is_array($result) && is_int($result['dismissed'] ?? null) ? $result['dismissed'] : 0;
     }
 
     // ── Conversions ──
