@@ -99,6 +99,42 @@ final class GoogleAdsTest extends TestCase
         $this->assertStringContainsString('/ads/insights/query', $this->transport->last()['url']);
     }
 
+    public function testRecommendationsJoinTheTypesFilter(): void
+    {
+        $this->transport->push(200, ['data' => [[
+            'id' => 'customers/1234567890/recommendations/ABC~1',
+            'type' => 'KEYWORD',
+            'campaignId' => '1234567890~campaign~55',
+            'dismissed' => false,
+            'impact' => ['baseClicks' => 10, 'potentialClicks' => 25],
+        ]]]);
+
+        $rows = $this->client()->ads()->google()->recommendations(
+            'conn_1',
+            '1234567890',
+            ['KEYWORD', 'TARGET_CPA_OPT_IN'],
+        );
+
+        $this->assertSame('KEYWORD', $rows[0]->type);
+        $this->assertSame(25.0, $rows[0]->impact?->potentialClicks);
+        $this->assertStringContainsString('types=KEYWORD%2CTARGET_CPA_OPT_IN', $this->transport->last()['url']);
+    }
+
+    public function testApplyRecommendationsSendsTheIds(): void
+    {
+        $this->transport->push(200, ['data' => ['applied' => 1]]);
+
+        $applied = $this->client()->ads()->google()->applyRecommendations(
+            'ws_1',
+            'conn_1',
+            '1234567890',
+            ['customers/1234567890/recommendations/ABC~1'],
+        );
+
+        $this->assertSame(1, $applied);
+        $this->assertStringContainsString('/ads/google/recommendations/apply', $this->transport->last()['url']);
+    }
+
     public function testAuthorizeGoogleHasItsOwnRoute(): void
     {
         $this->transport->push(200, ['data' => ['url' => 'https://accounts.google.com/o/x']]);
