@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Model;
 
-/** One page of ad-library results; pass `nextCursor` back as the cursor. */
+/** One page of archive results; pass `nextCursor` back as `after` for the next. */
 final class AdLibraryPage extends Model
 {
-    /** @param array<int, AdLibraryAd> $ads */
+    /** @param array<int, AdLibraryEntry> $entries */
     private function __construct(
         array $raw,
-        public readonly array $ads,
+        public readonly array $entries,
         public readonly ?string $nextCursor,
     ) {
         parent::__construct($raw);
@@ -22,7 +22,7 @@ final class AdLibraryPage extends Model
 
         return new self(
             $data,
-            AdLibraryAd::listFrom(self::seq($data, 'ads')),
+            AdLibraryEntry::listFrom(self::seq($data, 'entries')),
             self::str($data, 'next_cursor'),
         );
     }
