@@ -6,7 +6,7 @@ namespace Fopost\Sdk\Model;
 
 use DateTimeImmutable;
 
-/** A comment, mention or direct message on a connected account. */
+/** A comment, mention, review or direct message on a connected account. */
 final class InboxItem extends Model
 {
     /**
@@ -28,6 +28,8 @@ final class InboxItem extends Model
         public readonly ?string $authorHandle,
         public readonly ?string $authorAvatarUrl,
         public readonly ?string $text,
+        /** Stars on a review, 1-5. Null on every other type. */
+        public readonly ?int $rating,
         public readonly array $attachments,
         public readonly ?string $permalink,
         public readonly ?string $postExternalId,
@@ -51,6 +53,8 @@ final class InboxItem extends Model
         public readonly ?bool $canSendMedia,
         public readonly ?bool $canQuickReply,
         public readonly ?bool $canPrivateReply,
+        /** The platform's own state: published, held, spam or rejected. */
+        public readonly ?string $moderationStatus,
         public readonly ?array $post,
         public readonly ?array $postContext,
         public readonly ?array $account,
@@ -75,6 +79,7 @@ final class InboxItem extends Model
             self::str($data, 'author_handle'),
             self::str($data, 'author_avatar_url'),
             self::str($data, 'text'),
+            self::int($data, 'rating'),
             InboxAttachment::listFrom(self::seq($data, 'attachments')),
             self::str($data, 'permalink'),
             self::str($data, 'post_external_id'),
@@ -98,6 +103,7 @@ final class InboxItem extends Model
             self::bool($data, 'can_send_media'),
             self::bool($data, 'can_quick_reply'),
             self::bool($data, 'can_private_reply'),
+            self::str($data, 'moderation_status'),
             self::nested($data, 'post'),
             self::nested($data, 'post_context'),
             self::nested($data, 'account'),
