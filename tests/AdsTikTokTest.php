@@ -32,7 +32,14 @@ final class AdsTikTokTest extends TestCase
 
     public function testSparkPostIdAndSmartPlusTravelInTheBody(): void
     {
-        $this->transport->push(201, ['data' => ['id' => 'ad_1', 'workspaceId' => 'w_1', 'kind' => 'ad', 'name' => 'Spark', 'goal' => 'traffic', 'status' => 'paused']]);
+        $this->transport->push(201, ['data' => [
+            'id' => 'ad_1',
+            'workspaceId' => 'w_1',
+            'kind' => 'ad',
+            'name' => 'Spark',
+            'goal' => 'traffic',
+            'status' => 'paused',
+        ]]);
         $this->client()->ads()->create(
             'w_1',
             'conn_1',
