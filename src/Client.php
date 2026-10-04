@@ -11,10 +11,16 @@ use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AnalyticsResource;
 use Fopost\Sdk\Resource\AiResource;
+use Fopost\Sdk\Resource\BroadcastsResource;
+use Fopost\Sdk\Resource\ContactsResource;
+use Fopost\Sdk\Resource\GoogleBusinessResource;
 use Fopost\Sdk\Resource\InboxResource;
+use Fopost\Sdk\Resource\ActivityResource;
+use Fopost\Sdk\Resource\KnowledgeResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
+use Fopost\Sdk\Resource\SequencesResource;
 use Fopost\Sdk\Resource\ValidateResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
@@ -40,12 +46,19 @@ final class Client
     private readonly AccountGroupsResource $accountGroups;
     private readonly WorkspacesResource $workspaces;
     private readonly LabelsResource $labels;
+    private readonly ActivityResource $activity;
     private readonly AiResource $ai;
     private readonly InboxResource $inbox;
+    private readonly ContactsResource $contacts;
+    private readonly BroadcastsResource $broadcasts;
+    private readonly SequencesResource $sequences;
+
+    private readonly KnowledgeResource $knowledge;
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
     private readonly AnalyticsResource $analytics;
+    private readonly GoogleBusinessResource $googleBusiness;
 
     public function __construct(
         ?string $apiKey = null,
@@ -68,12 +81,18 @@ final class Client
         $this->accountGroups = new AccountGroupsResource($this->http);
         $this->workspaces = new WorkspacesResource($this->http);
         $this->labels = new LabelsResource($this->http);
+        $this->activity = new ActivityResource($this->http);
         $this->ai = new AiResource($this->http);
         $this->inbox = new InboxResource($this->http);
+        $this->contacts = new ContactsResource($this->http);
+        $this->broadcasts = new BroadcastsResource($this->http);
+        $this->sequences = new SequencesResource($this->http);
+        $this->knowledge = new KnowledgeResource($this->http);
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
         $this->analytics = new AnalyticsResource($this->http);
+        $this->googleBusiness = new GoogleBusinessResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -106,9 +125,29 @@ final class Client
         return $this->ai;
     }
 
+    public function knowledge(): KnowledgeResource
+    {
+        return $this->knowledge;
+    }
+
     public function inbox(): InboxResource
     {
         return $this->inbox;
+    }
+
+    public function contacts(): ContactsResource
+    {
+        return $this->contacts;
+    }
+
+    public function broadcasts(): BroadcastsResource
+    {
+        return $this->broadcasts;
+    }
+
+    public function sequences(): SequencesResource
+    {
+        return $this->sequences;
     }
 
     public function ads(): AdsResource
@@ -121,6 +160,11 @@ final class Client
         return $this->media;
     }
 
+    public function activity(): ActivityResource
+    {
+        return $this->activity;
+    }
+
     public function validate(): ValidateResource
     {
         return $this->validate;
@@ -129,6 +173,12 @@ final class Client
     public function analytics(): AnalyticsResource
     {
         return $this->analytics;
+    }
+
+    /** Manage a connected Google Business Profile location. */
+    public function googleBusiness(): GoogleBusinessResource
+    {
+        return $this->googleBusiness;
     }
 
     public function baseUrl(): string
