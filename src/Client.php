@@ -9,6 +9,7 @@ use Fopost\Sdk\Http\Transport;
 use Fopost\Sdk\Resource\AccountGroupsResource;
 use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
+use Fopost\Sdk\Resource\AnalyticsResource;
 use Fopost\Sdk\Resource\AiResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ContactsResource;
@@ -56,6 +57,7 @@ final class Client
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
+    private readonly AnalyticsResource $analytics;
     private readonly GoogleBusinessResource $googleBusiness;
 
     public function __construct(
@@ -89,6 +91,7 @@ final class Client
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
+        $this->analytics = new AnalyticsResource($this->http);
         $this->googleBusiness = new GoogleBusinessResource($this->http);
     }
 
@@ -165,6 +168,11 @@ final class Client
     public function validate(): ValidateResource
     {
         return $this->validate;
+    }
+
+    public function analytics(): AnalyticsResource
+    {
+        return $this->analytics;
     }
 
     /** Manage a connected Google Business Profile location. */
