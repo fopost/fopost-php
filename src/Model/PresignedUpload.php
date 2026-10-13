@@ -17,6 +17,7 @@ final class PresignedUpload extends Model
         public readonly string $method,
         public readonly array $headers,
         public readonly ?DateTimeImmutable $expiresAt,
+        public readonly ?int $maxFileBytes,
     ) {
         parent::__construct($raw);
     }
@@ -39,6 +40,7 @@ final class PresignedUpload extends Model
             self::str($data, 'method') ?? 'PUT',
             $headers,
             self::date($data, 'expires_at'),
+            self::int($data, 'max_file_bytes'),
         );
     }
 }
