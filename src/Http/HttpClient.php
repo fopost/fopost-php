@@ -124,10 +124,53 @@ final class HttpClient
         $url = $this->url($path, $params);
         $payload = $json === null ? null : self::encode($json);
 
+        return $this->sendWithRetry($method, $url, $this->headers(), $payload);
+    }
+
+    /**
+     * Send a multipart/form-data request: string fields plus file parts, each
+     * file under the same part name. Retries on 429 like request().
+     *
+     * @param array<string, string> $fields
+     * @param array<int, array{filename: string, contents: string, mimeType: string}> $files
+     */
+    public function requestMultipart(
+        string $method,
+        string $path,
+        array $fields,
+        array $files,
+        string $fileField,
+    ): mixed {
+        $boundary = 'fopost' . bin2hex(random_bytes(16));
+        $body = '';
+        foreach ($fields as $name => $value) {
+            $body .= "--{$boundary}\r\n"
+                . "Content-Disposition: form-data; name=\"{$name}\"\r\n\r\n"
+                . $value . "\r\n";
+        }
+        foreach ($files as $file) {
+            $filename = str_replace(['"', "\r", "\n"], '', $file['filename']);
+            $body .= "--{$boundary}\r\n"
+                . "Content-Disposition: form-data; name=\"{$fileField}\"; filename=\"{$filename}\"\r\n"
+                . "Content-Type: {$file['mimeType']}\r\n\r\n"
+                . $file['contents'] . "\r\n";
+        }
+        $body .= "--{$boundary}--\r\n";
+
+        $headers = $this->headers();
+        $headers['Content-Type'] = "multipart/form-data; boundary={$boundary}";
+        $headers['Content-Length'] = (string) strlen($body);
+
+        return $this->sendWithRetry($method, $this->url($path), $headers, $body);
+    }
+
+    /** @param array<string, string> $headers */
+    private function sendWithRetry(string $method, string $url, array $headers, ?string $payload): mixed
+    {
         $attempt = 0;
         while (true) {
             $attempt++;
-            $response = $this->transport->send($method, $url, $this->headers(), $payload);
+            $response = $this->transport->send($method, $url, $headers, $payload);
 
             if ($response->status === 429 && $attempt < $this->maxRetries) {
                 $wait = self::retryAfterSeconds($response);
