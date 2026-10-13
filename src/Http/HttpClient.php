@@ -300,7 +300,7 @@ final class HttpClient
         return $body;
     }
 
-    private static function encode(mixed $json): string
+    public static function encode(mixed $json): string
     {
         $encoded = json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if ($encoded === false) {
