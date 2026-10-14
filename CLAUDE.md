@@ -123,10 +123,16 @@ is added.
   and are read live. An empty update or duplicate body goes out as `{}` because the API rejects none. Request
   bodies are camelCase; query params stay snake_case. `Resource::page()` is the shared
   `{data, meta}` → `Page` helper.
-- `media` (scope `posts`) is direct upload only: `presign()` → `PresignedUpload`, `complete()` →
-  `MediaAsset`, and `uploadDirect()` which does both around a raw `PUT` of the bytes to the
-  presigned URL through `HttpClient::sendRaw()` (no API key, no JSON, no retry; a non-2xx throws
-  and `complete` is never called). Bodies are camelCase.
+- `media` (scope `posts`) is direct upload only: `limits()` → `UploadLimits`, `presign()` →
+  `PresignedUpload`, `complete()` → `MediaAsset`, and `uploadDirect()` which does both around a raw
+  `PUT` of the bytes to the presigned URL through `HttpClient::sendRaw()` (no API key, no JSON, no
+  retry; a non-2xx throws and `complete` is never called). Bodies are camelCase. There is no size
+  constant in the SDK: the ceiling is whatever `limits()` answers, and an oversize file is a `413`
+  `file_too_large` that falls through to `ApiException` with `max_file_bytes` on `->body`.
+- `posts()->create()` and `update()` take `files`. Every file at or under
+  `limits()->multipartMaxFileBytes` (100 MB when the call fails) goes in one multipart request through
+  `HttpClient::requestMultipart()` (`post` JSON field + `files` parts); otherwise each file goes
+  through `uploadDirect()` and is attached to the first block as a media item before the JSON request.
 
 ## API Contract
 

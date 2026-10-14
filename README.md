@@ -91,6 +91,18 @@ $scheduled = $client->posts()->create(
 // Partial update: only the fields you name are sent.
 $client->posts()->update($draft->id, title: 'A better title');
 
+// Attach files: paths, or ['filename' => ..., 'contents' => ..., 'mimeType' => ...].
+// They land in the media library and on the first content block. Small files travel
+// in one multipart request; anything over the multipart ceiling is uploaded direct
+// first. Either way the result is the same post.
+$withMedia = $client->posts()->create(
+    workspaceId: $workspaceId,
+    content: 'Launch day',
+    accounts: ['acc_1'],
+    files: ['launch.png', ['filename' => 'clip.mp4', 'contents' => $bytes, 'mimeType' => 'video/mp4']],
+);
+$client->posts()->update($draft->id, files: ['one-more.png']); // appends to the existing first block
+
 $client->posts()->schedule($draft->id, new DateTimeImmutable('+1 day'));
 $client->posts()->unschedule($draft->id);
 $client->posts()->publish($draft->id);
@@ -688,15 +700,35 @@ $archive = $client->ads()->library($connectionId, ['US'], $workspaceId, q: 'runn
 Upload a file straight to storage with a presigned URL, then register it in the media library. Needs the `posts` scope.
 
 ```php
-// One call: presign, PUT the bytes, complete.
+// What the account may upload. maxFileBytes grows with connected accounts (or the
+// Large Uploads add-on); multipartMaxFileBytes is the most one multipart part carries.
+$limits = $client->media()->limits($workspaceId);
+echo $limits->maxFileBytes, ' ', $limits->source, ' ', $limits->multipartMaxFileBytes, PHP_EOL;
+echo $limits->nextTier?->upToAccounts, ' accounts unlock ', $limits->nextTier?->maxFileBytes, PHP_EOL;
+
+// One call: presign, PUT the bytes, complete. Files up to maxFileBytes.
 $asset = $client->media()->uploadDirect($workspaceId, 'logo.png', 'image/png', file_get_contents('logo.png'));
 echo $asset->id, ' ', $asset->type, ' ', $asset->previewUrl, PHP_EOL;
+
+// Brand assets: a folder, a role, the brand it belongs to, and consent for a person.
+$client->media()->uploadDirect(
+    $workspaceId,
+    'founder.jpg',
+    'image/jpeg',
+    $bytes,
+    brandRole: 'person',
+    brandVoiceId: $brandVoiceId,
+    personConsent: ['subject' => 'Our founder', 'statement' => 'Agreed to appear in brand content'],
+);
 
 // Or step by step, when you PUT the bytes yourself.
 $upload = $client->media()->presign($workspaceId, 'clip.mp4', 'video/mp4', filesize('clip.mp4'));
 // PUT the file to $upload->uploadUrl with $upload->headers, no API key, before $upload->expiresAt.
 $asset = $client->media()->complete($upload->uploadId);
 ```
+
+A file over the limit is a `413` with `error: file_too_large`; it arrives as an `ApiException` whose
+`getBody()['max_file_bytes']` says what would have fit, and `getBody()['upgrade_url']` where to raise it.
 
 ## Validate
 
