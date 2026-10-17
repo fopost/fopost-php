@@ -6,19 +6,47 @@ namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\MediaAsset;
 use Fopost\Sdk\Model\PresignedUpload;
+use Fopost\Sdk\Model\UploadLimits;
 
 /** $client->media(): direct uploads to the media library. Needs the `posts` scope. */
 final class MediaResource extends Resource
 {
-    /** Reserve an upload and get the URL to PUT the bytes to. */
-    public function presign(string $workspaceId, string $filename, string $mimeType, int $size): PresignedUpload
+    /** The largest file the account may upload, and which route carries it. */
+    public function limits(?string $workspaceId = null): UploadLimits
     {
+        $body = $this->http->get('/media/limits', ['workspaceId' => $workspaceId]);
+
+        return UploadLimits::fromArray(self::unwrap($body));
+    }
+
+    /**
+     * Reserve an upload and get the URL to PUT the bytes to.
+     *
+     * @param array{subject: string, statement: string}|null $personConsent Required with brandRole `person`.
+     */
+    public function presign(
+        string $workspaceId,
+        string $filename,
+        string $mimeType,
+        int $size,
+        ?string $folderId = null,
+        ?string $origin = null,
+        ?string $brandRole = null,
+        ?string $brandVoiceId = null,
+        ?array $personConsent = null,
+    ): PresignedUpload {
         $body = [
             'workspaceId' => $workspaceId,
             'filename' => $filename,
             'mimeType' => $mimeType,
             'size' => $size,
-        ];
+        ] + self::compact([
+            'folderId' => $folderId,
+            'origin' => $origin,
+            'brandRole' => $brandRole,
+            'brandVoiceId' => $brandVoiceId,
+            'personConsent' => $personConsent,
+        ]);
 
         return PresignedUpload::fromArray(self::unwrap($this->http->post('/media/presign', $body)));
     }
@@ -29,10 +57,33 @@ final class MediaResource extends Resource
         return MediaAsset::fromArray(self::unwrap($this->http->post("/media/presign/{$uploadId}/complete")));
     }
 
-    /** Presign, PUT the bytes, and complete in one call. */
-    public function uploadDirect(string $workspaceId, string $filename, string $mimeType, string $bytes): MediaAsset
-    {
-        $upload = $this->presign($workspaceId, $filename, $mimeType, strlen($bytes));
+    /**
+     * Presign, PUT the bytes, and complete in one call.
+     *
+     * @param array{subject: string, statement: string}|null $personConsent
+     */
+    public function uploadDirect(
+        string $workspaceId,
+        string $filename,
+        string $mimeType,
+        string $bytes,
+        ?string $folderId = null,
+        ?string $origin = null,
+        ?string $brandRole = null,
+        ?string $brandVoiceId = null,
+        ?array $personConsent = null,
+    ): MediaAsset {
+        $upload = $this->presign(
+            $workspaceId,
+            $filename,
+            $mimeType,
+            strlen($bytes),
+            $folderId,
+            $origin,
+            $brandRole,
+            $brandVoiceId,
+            $personConsent,
+        );
 
         // Storage, not the API: no API key, and the presigned headers as given.
         $headers = $upload->headers + ['Content-Length' => (string) strlen($bytes)];

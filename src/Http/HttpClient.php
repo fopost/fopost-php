@@ -90,19 +90,25 @@ final class HttpClient
     {
         $url = str_contains($path, '://') ? $path : $this->baseUrl . '/' . ltrim($path, '/');
 
-        $clean = [];
+        $pairs = [];
         foreach ($params ?? [] as $key => $value) {
             if ($value === null) {
                 continue;
             }
-            if (is_bool($value)) {
-                $value = $value ? 'true' : 'false';
+            // A list repeats the bare parameter; http_build_query would index
+            // it as `key[0]=`, which the API reads as a different name.
+            foreach (is_array($value) ? $value : [$value] as $item) {
+                if (is_bool($item)) {
+                    $item = $item ? 'true' : 'false';
+                }
+                // urlencode, not rawurlencode: http_build_query spelt a space
+                // as '+', and the existing callers' URLs are asserted that way.
+                $pairs[] = urlencode((string) $key) . '=' . urlencode((string) $item);
             }
-            $clean[$key] = $value;
         }
 
-        if ($clean !== []) {
-            $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($clean);
+        if ($pairs !== []) {
+            $url .= (str_contains($url, '?') ? '&' : '?') . implode('&', $pairs);
         }
 
         return $url;
@@ -118,10 +124,53 @@ final class HttpClient
         $url = $this->url($path, $params);
         $payload = $json === null ? null : self::encode($json);
 
+        return $this->sendWithRetry($method, $url, $this->headers(), $payload);
+    }
+
+    /**
+     * Send a multipart/form-data request: string fields plus file parts, each
+     * file under the same part name. Retries on 429 like request().
+     *
+     * @param array<string, string> $fields
+     * @param array<int, array{filename: string, contents: string, mimeType: string}> $files
+     */
+    public function requestMultipart(
+        string $method,
+        string $path,
+        array $fields,
+        array $files,
+        string $fileField,
+    ): mixed {
+        $boundary = 'fopost' . bin2hex(random_bytes(16));
+        $body = '';
+        foreach ($fields as $name => $value) {
+            $body .= "--{$boundary}\r\n"
+                . "Content-Disposition: form-data; name=\"{$name}\"\r\n\r\n"
+                . $value . "\r\n";
+        }
+        foreach ($files as $file) {
+            $filename = str_replace(['"', "\r", "\n"], '', $file['filename']);
+            $body .= "--{$boundary}\r\n"
+                . "Content-Disposition: form-data; name=\"{$fileField}\"; filename=\"{$filename}\"\r\n"
+                . "Content-Type: {$file['mimeType']}\r\n\r\n"
+                . $file['contents'] . "\r\n";
+        }
+        $body .= "--{$boundary}--\r\n";
+
+        $headers = $this->headers();
+        $headers['Content-Type'] = "multipart/form-data; boundary={$boundary}";
+        $headers['Content-Length'] = (string) strlen($body);
+
+        return $this->sendWithRetry($method, $this->url($path), $headers, $body);
+    }
+
+    /** @param array<string, string> $headers */
+    private function sendWithRetry(string $method, string $url, array $headers, ?string $payload): mixed
+    {
         $attempt = 0;
         while (true) {
             $attempt++;
-            $response = $this->transport->send($method, $url, $this->headers(), $payload);
+            $response = $this->transport->send($method, $url, $headers, $payload);
 
             if ($response->status === 429 && $attempt < $this->maxRetries) {
                 $wait = self::retryAfterSeconds($response);
@@ -147,6 +196,11 @@ final class HttpClient
     public function put(string $path, mixed $json = null): mixed
     {
         return $this->request('PUT', $path, $json);
+    }
+
+    public function patch(string $path, mixed $json = null): mixed
+    {
+        return $this->request('PATCH', $path, $json);
     }
 
     public function delete(string $path, mixed $json = null): mixed
@@ -246,7 +300,7 @@ final class HttpClient
         return $body;
     }
 
-    private static function encode(mixed $json): string
+    public static function encode(mixed $json): string
     {
         $encoded = json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if ($encoded === false) {

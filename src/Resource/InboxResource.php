@@ -9,6 +9,7 @@ use Fopost\Sdk\Model\InboxAccount;
 use Fopost\Sdk\Model\InboxApproval;
 use Fopost\Sdk\Model\InboxApprovalDecision;
 use Fopost\Sdk\Model\InboxConversation;
+use Fopost\Sdk\Model\InboxHandover;
 use Fopost\Sdk\Model\InboxItem;
 use Fopost\Sdk\Model\InboxPlatform;
 use Fopost\Sdk\Model\InboxRefreshResult;
@@ -18,7 +19,7 @@ use Fopost\Sdk\Model\InboxThread;
 use Fopost\Sdk\Model\Page;
 
 /**
- * $client->inbox(): comments, mentions and direct messages on connected accounts.
+ * $client->inbox(): comments, mentions, reviews and direct messages on connected accounts.
  *
  * Every call needs the `inbox` scope.
  */
@@ -64,7 +65,8 @@ final class InboxResource extends Resource
     }
 
     /**
-     * One row per post with comments; pass kind `mentions` for posts we were tagged in.
+     * One row per post with comments; pass kind `mentions` for posts we were tagged in,
+     * or `reviews` for one row per review left on the business.
      *
      * @return Page<InboxThread>
      */
@@ -300,6 +302,26 @@ final class InboxResource extends Resource
         ));
 
         return is_array($result) && ($result['typing'] ?? false) === true;
+    }
+
+    /** Pass a Messenger thread to another Meta app, or take it back without an app id. */
+    public function handover(
+        string $conversationId,
+        string $accountId,
+        ?string $appId = null,
+        ?string $metadata = null,
+    ): InboxHandover {
+        $body = ['account_id' => $accountId];
+        if ($appId !== null) {
+            $body['app_id'] = $appId;
+        }
+        if ($metadata !== null) {
+            $body['metadata'] = $metadata;
+        }
+
+        return InboxHandover::fromArray(self::unwrap(
+            $this->http->post("/inbox/conversations/{$conversationId}/handover", $body),
+        ));
     }
 
     /**

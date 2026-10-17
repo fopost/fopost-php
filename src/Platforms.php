@@ -25,6 +25,7 @@ final class Platforms
         'slack',
         'reddit',
         'pinterest',
+        'snapchat',
         'tumblr',
         'dribbble',
         'mewe',
