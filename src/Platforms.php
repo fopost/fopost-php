@@ -25,6 +25,7 @@ final class Platforms
         'slack',
         'reddit',
         'pinterest',
+        'snapchat',
         'tumblr',
         'dribbble',
         'mewe',
@@ -45,6 +46,7 @@ final class Platforms
         'nostr',
         'whop',
         'skool',
+        'whatsapp',
     ];
 
     /** @var array<int, string> */

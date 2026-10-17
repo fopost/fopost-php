@@ -23,6 +23,8 @@ final class InboxThread extends Model
         public readonly ?DateTimeImmutable $lastCommentAt,
         public readonly ?string $lastCommentText,
         public readonly ?string $lastCommentAuthor,
+        /** Stars, on a review thread. Null on comments and mentions. */
+        public readonly ?int $rating,
         public readonly ?array $post,
         public readonly ?array $account,
     ) {
@@ -43,6 +45,7 @@ final class InboxThread extends Model
             self::date($data, 'last_comment_at'),
             self::str($data, 'last_comment_text'),
             self::str($data, 'last_comment_author'),
+            self::int($data, 'rating'),
             self::nested($data, 'post'),
             self::nested($data, 'account'),
         );

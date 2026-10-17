@@ -91,6 +91,18 @@ $scheduled = $client->posts()->create(
 // Partial update: only the fields you name are sent.
 $client->posts()->update($draft->id, title: 'A better title');
 
+// Attach files: paths, or ['filename' => ..., 'contents' => ..., 'mimeType' => ...].
+// They land in the media library and on the first content block. Small files travel
+// in one multipart request; anything over the multipart ceiling is uploaded direct
+// first. Either way the result is the same post.
+$withMedia = $client->posts()->create(
+    workspaceId: $workspaceId,
+    content: 'Launch day',
+    accounts: ['acc_1'],
+    files: ['launch.png', ['filename' => 'clip.mp4', 'contents' => $bytes, 'mimeType' => 'video/mp4']],
+);
+$client->posts()->update($draft->id, files: ['one-more.png']); // appends to the existing first block
+
 $client->posts()->schedule($draft->id, new DateTimeImmutable('+1 day'));
 $client->posts()->unschedule($draft->id);
 $client->posts()->publish($draft->id);
@@ -113,6 +125,12 @@ $account = $client->accounts()->get('acc_1');
 $health = $client->accounts()->health('acc_1');
 $client->accounts()->disconnect('acc_1');
 
+// The numbers only this account's network reports, in its own vocabulary.
+$metrics = $client->accounts()->platformMetrics('acc_1');
+foreach ($metrics->account->metrics as $row) {
+    echo "{$row->label}: {$row->value}\n";
+}
+
 // Rename; null restores the platform name.
 $client->accounts()->update('acc_1', 'Brand HQ');
 $client->accounts()->move('acc_1', $otherWorkspaceId);
@@ -134,7 +152,62 @@ $channels = $client->accounts()->listSlackChannels('acc_1');
 $members = $client->accounts()->listSlackMembers('acc_1');
 $identity = $client->accounts()->getSlackIdentity('acc_1');
 $client->accounts()->updateSlackIdentity('acc_1', username: 'Launch Bot', iconEmoji: ':rocket:');
+
+// Meta messaging settings. Ice breakers on Facebook Pages and Instagram; the menu and
+// greeting on Pages only. A network without a field answers 400.
+$client->accounts()->setIceBreakers('acc_1', [
+    ['question' => 'What are your hours?', 'payload' => 'HOURS'],
+]);
+$client->accounts()->setPersistentMenu('acc_1', [[
+    'locale' => 'default',
+    'call_to_actions' => [['type' => 'postback', 'title' => 'Talk to Us', 'payload' => 'HUMAN']],
+]]);
+$client->accounts()->setGreeting('acc_1', [['text' => 'Hi! Ask us anything.']]);
+
+// Is the network still delivering events for this account?
+$subscription = $client->accounts()->getWebhookSubscription('acc_1');
+if (!$subscription->subscribed) {
+    $client->accounts()->resubscribeWebhook('acc_1');
+}
+
+// Discord (bot connections): the channel, the bot's identity, and the server itself.
+// Discord ids are snowflakes; take them from the list calls rather than typing one.
+$channels = $client->accounts()->listDiscordChannels('acc_2');
+$client->accounts()->switchDiscordChannel('acc_2', $channels[0]->id);
+$client->accounts()->updateDiscordIdentity('acc_2', username: 'Release Bot');
+
+$client->accounts()->createDiscordEvent(
+    'acc_2',
+    name: 'Launch stream',
+    startTime: '2026-10-01T18:00:00Z',
+    endTime: '2026-10-01T19:00:00Z',
+    location: 'https://yourbrand.com/live',
+);
+
+$members = $client->accounts()->listDiscordMembers('acc_2', query: 'ada');
+$role = $client->accounts()->createDiscordRole('acc_2', 'Beta');
+$client->accounts()->addDiscordMemberRole('acc_2', $role->id, $members[0]->id);
+$client->accounts()->sendDiscordDm('acc_2', $members[0]->id, 'Welcome aboard');
 ```
+
+## Google Business Profile
+
+Manage a connected Business Profile location: the profile, attributes, food menus, services, photos, action links, verification and performance.
+
+```php
+$location = $client->googleBusiness()->getLocation('acc_1');
+$client->googleBusiness()->updateLocation('acc_1', title: 'Corner Bakery', websiteUri: 'https://yourbrand.com');
+
+// Photos come from your media library, JPEG or PNG.
+$client->googleBusiness()->addMedia('acc_1', $mediaId, 'INTERIOR');
+
+$client->googleBusiness()->createPlaceAction('acc_1', 'https://yourbrand.com/book', 'APPOINTMENT');
+
+$metrics = $client->googleBusiness()->getPerformance('acc_1', '2026-09-01', '2026-09-30');
+$terms = $client->googleBusiness()->getSearchKeywords('acc_1', '2026-08-01', '2026-09-01');
+```
+
+Responses relay Google's own shape as plain arrays. Reads need the `accounts` scope, writes `publish` as well. Every call fails with a 503 `configuration_error` until Google grants the deployment Business Profile API access.
 
 ## Account groups
 
@@ -231,11 +304,192 @@ $started = $client->inbox()->startConversation('Hi there', accountId: $accountId
 $client->inbox()->startConversation('Sent you the details', commentId: $item->id);
 $client->inbox()->setTyping($started->conversationId, $accountId);
 
+// Messenger hand-over: pass the thread to another Meta app, or take it back with no app id.
+$client->inbox()->handover($started->conversationId, $accountId, '263902037430900');
+$client->inbox()->handover($started->conversationId, $accountId);
+
 // Replies an automation or the agent drafted, waiting for a person.
 foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
     $client->inbox()->approveReply($approval->id);          // or approveReply($id, 'edited text')
 }
 $client->inbox()->rejectReply($approval->id);
+```
+
+## Contacts
+
+The people behind the inbox. A contact is one human however many handles they write from: an inbound item files its author, a reply files whoever you answered, and both fold into whatever is already on file. Needs the `inbox` scope.
+
+```php
+use Fopost\Sdk\Model\ContactChannel;
+
+$page = $client->contacts()->list($workspaceId, search: 'ada');
+foreach ($page as $contact) {
+    echo $contact->displayName, ' — ', count($contact->channels), ' handles', PHP_EOL;
+}
+echo $page->meta->total;
+
+$contact = $client->contacts()->get($contactId);
+
+// Folds into whoever already holds the first channel, so this cannot duplicate someone.
+$contact = $client->contacts()->create(
+    $workspaceId,
+    [ContactChannel::make('x', 'ada_writes')],
+    displayName: 'Ada Okafor',
+    fields: ['plan_tier' => 'Pro'],
+);
+
+$client->contacts()->update($contact->id, fields: ['region' => null]); // null clears a field
+$client->contacts()->delete($contact->id);                             // the messages stay
+
+// The threads this person appears in, newest first.
+foreach ($client->contacts()->conversations($contact->id) as $thread) {
+    echo $thread->platform, ' ', $thread->messages, ' messages', PHP_EOL;
+}
+
+// platform and handle are required columns; any other column is a custom field key.
+$result = $client->contacts()->import($workspaceId, "platform,handle\nx,ada_writes");
+echo $result->created, ' created, ', $result->merged, ' merged';
+print_r($result->unknownColumns);
+
+// The columns your workspace keeps.
+$fields = $client->contacts()->listFields($workspaceId);
+$field = $client->contacts()->createField($workspaceId, 'plan_tier', 'Plan Tier', 'select', ['Free', 'Pro']);
+$client->contacts()->updateField($field->id, name: 'Tier');
+$client->contacts()->deleteField($field->id);   // removes every answer to it
+
+// Volume and median reply time per thread. Needs the `analytics` scope.
+$report = $client->contacts()->conversationAnalytics(days: 30, sort: 'slowest');
+echo $report->conversations[0]->medianResponseMinutes;
+```
+
+## Broadcasts
+
+One message into every conversation you already have with a segment of your contacts. Nothing is sent into a closed messaging window: Messenger and Instagram take a business-initiated message only within 24 hours of the contact's last one, so recipients outside it come back skipped with `window_closed` rather than attempted. Telegram, Slack, Bluesky and Reddit have no window.
+
+Reading needs the `inbox` scope; `send()` and `cancel()` also need `publish`.
+
+```php
+$page = $client->broadcasts()->list($workspaceId, status: 'sent');
+foreach ($page as $broadcast) {
+    echo $broadcast->name, ' — ', $broadcast->counts?->sent, ' sent', PHP_EOL;
+}
+
+$broadcast = $client->broadcasts()->create(
+    $workspaceId,
+    $accountId,
+    'September check-in',
+    'New colours just landed. Want a look?',
+    audience: ['platforms' => ['instagram']],
+);
+
+// The recipients count is how many contacts matched, not how many will be
+// messaged — the messaging window decides that.
+$result = $client->broadcasts()->send($broadcast->id);
+
+// Who was skipped, and why.
+foreach ($client->broadcasts()->recipients($broadcast->id, status: 'skipped') as $recipient) {
+    echo $recipient->displayName, ': ', $recipient->skipReason, PHP_EOL;
+}
+```
+
+## Sequences
+
+A series of messages, each a delay after the one before, walked per enrolled contact. The messaging window applies to every step: one that comes due outside it is skipped rather than sent, and the enrollment carries on.
+
+```php
+use Fopost\Sdk\Model\SequenceStep;
+
+$sequence = $client->sequences()->create($workspaceId, $accountId, 'Welcome', [
+    SequenceStep::make(0, 'Thanks for the follow — anything I can help with?'),
+    SequenceStep::make(48, 'Here is what people usually ask us first.'),
+]);
+
+// By id, or by the same audience filter a broadcast takes.
+$client->sequences()->enroll($sequence->id, [$contactId]);
+$client->sequences()->enroll($sequence->id, audience: ['platforms' => ['telegram']]);
+
+// Nothing further fires for them.
+$client->sequences()->unenroll($sequence->id, [$contactId]);
+
+foreach ($client->sequences()->enrollments($sequence->id) as $enrollment) {
+    echo $enrollment->displayName, ' — step ', $enrollment->step, PHP_EOL;
+}
+```
+
+## Blog
+
+Keywords planned for a website and the articles written from them. A post goes to a social network; an article goes to a website. Reads, settings and keyword edits need the `posts` scope; `planKeywords()`, `requestArticle()` and `regenerateArticle()` spend credits and need `ai` (an empty balance is a `PaymentRequiredException`); `publishArticle()` needs `publish`.
+
+```php
+$article = $client->blog()->requestArticle(
+    $workspaceId,
+    keyword: 'sharpen garden shears',
+    instructions: 'Open with the tools a beginner already owns.',
+);
+
+// The writer runs in the background; the draft appears once it is done.
+foreach ($client->blog()->listArticles($workspaceId, status: 'draft') as $draft) {
+    echo $draft->title, ' (', $draft->wordCount, ' words)', PHP_EOL;
+}
+
+$full = $client->blog()->getArticle($workspaceId, $article->id);
+$client->blog()->publishArticle($workspaceId, $full->id);
+```
+
+Point the blog at your own site with `updateSettings($workspaceId, ['targetKind' => 'website', 'websiteUrl' => 'https://yourbrand.com/fopost/articles'])`. The first time `websiteUrl` is set the result carries `websiteSecret`, shown once; every published article is then POSTed to that URL as a signed `article.published` webhook. Verify it from the raw request bytes, never a re-encoded array:
+
+```php
+use Fopost\Sdk\Exception\WebhookSignatureException;
+use Fopost\Sdk\Webhooks;
+
+try {
+    $event = Webhooks::verify(file_get_contents('php://input'), getallheaders(), $websiteSecret);
+} catch (WebhookSignatureException $e) {
+    http_response_code(401);
+    exit;
+}
+
+if ($event->event === 'article.published') {
+    $article = $event->article();
+    // Image URLs are good for six hours; download and store your own copy.
+    save($article->slug, $article->bodyHtml, $article->featuredImage?->url);
+}
+```
+
+`Webhooks::verify()` works for every FoPost webhook, not only the blog. It prefers the timestamped signature and refuses a delivery older than five minutes, falling back to the body-only signature when no timestamp header is present.
+
+## Knowledge
+
+What the workspace has told FoPost about itself. Retrieval over these sources
+is what grounds a drafted inbox reply in your own answers instead of an
+invented one. Needs the `inbox` scope.
+
+```php
+// A source is an FAQ, a note, a page on your own site, or a plain-text/CSV
+// media item. Adding one queues it for indexing, so it comes back `pending`.
+$faq = $client->knowledge()->create(
+    kind: 'faq',
+    title: 'Refunds and returns',
+    content: "Q: How long do refunds take?\nA: Up to 30 days from the request.",
+    workspaceId: $workspaceId,
+);
+$page = $client->knowledge()->create(kind: 'url', title: 'Shipping', url: 'https://yourbrand.com/shipping');
+$file = $client->knowledge()->create(kind: 'file', title: 'Price list', mediaId: $mediaId);
+
+foreach ($client->knowledge()->list($workspaceId) as $source) {
+    echo $source->title, ' ', $source->status, ' ', $source->chunkCount, PHP_EOL;
+}
+
+// Editing the text or the URL re-indexes the source on its own.
+$client->knowledge()->update($faq->id, title: 'Refunds');
+// A page you changed on your own site needs an explicit re-read.
+$client->knowledge()->sync($page->id);
+$client->knowledge()->delete($file->id);
+
+// Empty is the honest answer when nothing stored answers the question.
+foreach ($client->knowledge()->search('how long do refunds take?', topK: 3) as $match) {
+    echo $match->sourceTitle, ': ', $match->text, PHP_EOL;
+}
 ```
 
 ## Ads
@@ -249,7 +503,8 @@ $client->ads()->boostable($workspaceId);
 $client->ads()->connections($workspaceId);
 $client->ads()->sources($workspaceId);       // ad accounts and Pages per connection
 
-$url = $client->ads()->authorizeMeta($workspaceId);   // finish the login in a browser
+$client->ads()->providers();                 // the networks this deployment knows
+$url = $client->ads()->authorize('meta', $workspaceId);   // finish the login in a browser
 $client->ads()->deleteConnection($connectionId, $workspaceId);
 
 $boost = $client->ads()->boost(
@@ -346,12 +601,33 @@ $client->ads()->deleteCampaign($copyId, $workspaceId, $connectionId);
 // deleteNetworkAd(), duplicateAdSet(), duplicateNetworkAd(), creatives(), creative(), deleteCreative()
 ```
 
+### Forecasts, conversions and the ad library
+
+Available wherever the network's `capabilities` say so — `providers()` reports them.
+
+```php
+$client->ads()->bidPricing($workspaceId, $connectionId, $adAccountId, 'traffic', $targeting);
+$client->ads()->supplyForecast($workspaceId, $connectionId, $adAccountId, 'traffic', $targeting, budgetMinor: 50000);
+
+$rules = $client->ads()->conversionRules($workspaceId, $connectionId, $adAccountId);
+$ruleId = $client->ads()->createConversionRule(
+    $workspaceId, $connectionId, $adAccountId, 'Checkout', 'purchase', 'last_touch',
+);
+$client->ads()->attachConversionRule($ruleId, $workspaceId, $connectionId, $adSetId);
+$client->ads()->conversionMetrics($ruleId, $workspaceId, $connectionId, '2026-09-01', '2026-09-30');
+// Each event needs happenedAt in epoch ms and an email or a clickId; the API hashes the address.
+$client->ads()->sendConversionEvents($ruleId, $workspaceId, $connectionId, $events);
+
+$page = $client->ads()->adLibrary($workspaceId, $connectionId, keyword: 'crm', countries: ['US']);
+```
+
 ### Audiences, reach and insights
 
 ```php
 $client->ads()->audience($audienceId, $connectionId);
 $client->ads()->updateAudience($audienceId, $workspaceId, $connectionId, name: 'Customers 2026');
 $added = $client->ads()->addAudienceUsers($audienceId, $workspaceId, $connectionId, $emails);   // hashed by the API
+$client->ads()->addAudienceCompanies($audienceId, $workspaceId, $connectionId, $companies);     // a company list
 $client->ads()->deleteAudience($audienceId, $workspaceId, $connectionId);
 
 $reach = $client->ads()->estimateReach($workspaceId, $connectionId, 'act_123', '555', [
@@ -380,20 +656,79 @@ while ($page->nextCursor !== null) {
 $client->ads()->unsubscribeLeadPage('555', $workspaceId, $connectionId);
 ```
 
+Catalogs, predictions and the public archive:
+
+```php
+// Ask the connection what it can run, rather than assuming.
+$goals = $client->ads()->goals($connectionId, $workspaceId);
+
+// A catalog with a product set is what a catalog ad runs from.
+$catalog = $client->ads()->createCatalog($workspaceId, $connectionId, 'Shop');
+$client->ads()->writeCatalogProducts($catalog->id, $workspaceId, $connectionId, [
+    [
+        'op' => 'upsert',
+        'retailerId' => 'SKU-1042',
+        'name' => 'Trail Runner',
+        'url' => 'https://yourbrand.com/shop/trail-runner',
+        'imageUrl' => 'https://yourbrand.com/img/trail-runner.jpg',
+        'priceMinor' => 12900,
+        'currency' => 'USD',
+    ],
+]);
+$set = $client->ads()->createProductSet($catalog->id, $workspaceId, $connectionId, 'Best sellers');
+
+// Price a flight before buying it.
+$prediction = $client->ads()->createReachFrequency(
+    $workspaceId,
+    $connectionId,
+    'act_1234567890',
+    'Launch week',
+    ['countries' => ['US'], 'ageMin' => 18, 'ageMax' => 65, 'gender' => 'all'],
+    ['facebook'],
+    500000,
+    '2026-10-01T00:00:00Z',
+    '2026-10-08T00:00:00Z',
+);
+$client->ads()->reserveReachFrequency($prediction->id, $workspaceId, $connectionId, 'act_1234567890');
+
+// What anyone is running, read live and stored nowhere.
+$archive = $client->ads()->library($connectionId, ['US'], $workspaceId, q: 'running shoes');
+```
+
 ## Media
 
 Upload a file straight to storage with a presigned URL, then register it in the media library. Needs the `posts` scope.
 
 ```php
-// One call: presign, PUT the bytes, complete.
+// What the account may upload. maxFileBytes grows with connected accounts (or the
+// Large Uploads add-on); multipartMaxFileBytes is the most one multipart part carries.
+$limits = $client->media()->limits($workspaceId);
+echo $limits->maxFileBytes, ' ', $limits->source, ' ', $limits->multipartMaxFileBytes, PHP_EOL;
+echo $limits->nextTier?->upToAccounts, ' accounts unlock ', $limits->nextTier?->maxFileBytes, PHP_EOL;
+
+// One call: presign, PUT the bytes, complete. Files up to maxFileBytes.
 $asset = $client->media()->uploadDirect($workspaceId, 'logo.png', 'image/png', file_get_contents('logo.png'));
 echo $asset->id, ' ', $asset->type, ' ', $asset->previewUrl, PHP_EOL;
+
+// Brand assets: a folder, a role, the brand it belongs to, and consent for a person.
+$client->media()->uploadDirect(
+    $workspaceId,
+    'founder.jpg',
+    'image/jpeg',
+    $bytes,
+    brandRole: 'person',
+    brandVoiceId: $brandVoiceId,
+    personConsent: ['subject' => 'Our founder', 'statement' => 'Agreed to appear in brand content'],
+);
 
 // Or step by step, when you PUT the bytes yourself.
 $upload = $client->media()->presign($workspaceId, 'clip.mp4', 'video/mp4', filesize('clip.mp4'));
 // PUT the file to $upload->uploadUrl with $upload->headers, no API key, before $upload->expiresAt.
 $asset = $client->media()->complete($upload->uploadId);
 ```
+
+A file over the limit is a `413` with `error: file_too_large`; it arrives as an `ApiException` whose
+`getBody()['max_file_bytes']` says what would have fit, and `getBody()['upgrade_url']` where to raise it.
 
 ## Validate
 
@@ -412,6 +747,92 @@ $length->platforms[0]->length;          // in $length->platforms[0]->unit, limit
 
 $media = $client->validate()->media('https://yourbrand.com/launch.png');
 $media->ok;                             // 200 even when a check fails; read $media->issues
+```
+
+## WhatsApp Business
+
+A WhatsApp Business number you already own. The platform owns the templates,
+flows, profile and commerce settings, so every call is live; all of it answers
+503 until WhatsApp is set up. Needs the `accounts` scope, except the sandbox,
+which sends a template and needs `publish`.
+
+```php
+$profile = $client->whatsapp()->getProfile($accountId);
+$profile->qualityRating;                // as the platform reports it
+
+// Filing a template returns the review status the platform gave it, never an
+// assumed one.
+$template = $client->whatsapp()->createTemplate(
+    $accountId,
+    'order_shipped',
+    'en_US',
+    'UTILITY',
+    [['type' => 'BODY', 'text' => 'Your order is on its way.']],
+);
+$template->status;                      // PENDING until the platform approves it
+
+// A flow is created as a draft, its screens uploaded, then published.
+$flow = $client->whatsapp()->createFlow($accountId, 'Book a fitting', ['LEAD_GENERATION']);
+$client->whatsapp()->uploadFlowJson($accountId, $flow->id, ['version' => '7.0', 'screens' => []]);
+$client->whatsapp()->publishFlow($accountId, $flow->id);
+$client->whatsapp()->listFlowResponses($accountId);
+
+// Groups are invite-only: there is no endpoint that adds a participant.
+$group = $client->whatsapp()->createGroup($accountId, 'Launch crew');
+$client->whatsapp()->getGroupInviteLink($accountId, $group->id);
+## Analytics
+
+```php
+// How long a post keeps earning, from the repeated readings of each post
+$decay = $client->analytics()->decay(days: 30);
+echo $decay->halfLifeBucket; // e.g. "1h_3h"
+
+// Whether posting more earned more
+$cadence = $client->analytics()->frequency(days: 90);
+echo $cadence->best?->label; // e.g. "3-5 a week"
+
+// Every reading held for one post, with what moved between them
+$timeline = $client->analytics()->timeline($post->id);
+
+// Mirror the metrics into your own store, without refetching everything
+$cursor = null;
+do {
+    $page = $client->analytics()->changes(since: $cursor);
+    save($page->changes);
+    $cursor = $page->cursor?->format(DATE_ATOM);
+} while ($page->hasMore && $cursor !== null);
+
+// Refresh one post now instead of waiting for the next collection run
+$client->analytics()->collectPost($post->id);
+
+// Posts on the account that never went out through FoPost
+foreach ($client->analytics()->nativePosts($accounts[0]->id)->items as $native) {
+    echo $native->permalink, ' ', $native->metrics->engagements, PHP_EOL;
+}
+```
+
+A post is addressed by its FoPost id or by its permalink, so a post made by
+hand on the network works the same way:
+
+```php
+$client->analytics()->timeline('https://x.com/acme/status/1');
+## Activity
+
+What happened in a workspace, newest first. Needs the `analytics` scope.
+
+```php
+$page = $client->activity()->list('w_1');
+$page->events[0]->summary;              // "Published to 3 accounts"
+$page->events[0]->actor->name;          // who did it
+$page->nextCursor;                      // pass back as $cursor for the next page
+```
+
+`kind` of `security` is the audit log: members joining, leaving or changing role
+and access, and changes to two-step verification, passkeys, single sign-on and
+signed-in devices. Those rows are append-only and never expire.
+
+```php
+$audit = $client->activity()->list('w_1', 'security');
 ```
 
 ## Blogs, articles and products
@@ -507,6 +928,22 @@ $fake = new class implements Transport {
 $client = new Client('fop_test_key', Client::DEFAULT_BASE_URL, 30.0, 3, $fake);
 ```
 
+## Chatbots and the inbox
+
+The [chat adapter](https://fopost.com/docs/sdks/chat-adapter) turns the FoPost inbox into one send/receive channel for a chatbot
+framework. It ships in the TypeScript and Python SDKs. There is no dedicated adapter here and no
+API change behind it, so the same loop is three pieces with this client:
+
+1. **Verify** the `inbox.message_received` webhook. The payload is ids only, on purpose, so
+   nothing a customer wrote sits in your logs. The [signing scheme](https://fopost.com/docs/webhooks/verification)
+   is HMAC-SHA256 over `{timestamp}.{body}`, refused past a five minute tolerance.
+2. **Read** the item back with `$client->inbox()->list(workspaceId: $workspaceId, type: 'dm', accountId: $accountId)`, filtered to the payload's
+   `accountId` and matched on its `itemId`.
+3. **Answer** with `$client->inbox()->reply($item->id, $text)`, or open a thread with
+   `$client->inbox()->startConversation(...)`.
+
+Reading needs the `inbox` scope; answering needs `publish` as well.
+
 ## Support
 
 Questions and issues: [fopost.com/contact](https://fopost.com/contact) or the [issue tracker](https://github.com/fopost/fopost-php/issues).
@@ -514,3 +951,27 @@ Questions and issues: [fopost.com/contact](https://fopost.com/contact) or the [i
 ## License
 
 MIT. Copyright Porter Bridge, LLC.
+
+### Google Ads
+
+Campaigns, ad groups, ads, audiences and insights are on `$client->ads()` and dispatch by
+connection. What only Google has is under `$client->ads()->google()`:
+
+```php
+$keywords = $client->ads()->google()->keywords('c4d5e6f7-…', '1234567890');
+
+$client->ads()->google()->createKeyword(
+    workspaceId: '7d2b8c11-…',
+    connectionId: 'c4d5e6f7-…',
+    customerId: '1234567890',
+    adGroupId: '1234567890~adGroup~77',
+    text: 'running shoes',
+    matchType: 'EXACT',
+);
+```
+
+Also `keywordIdeas()`, `keywordMetrics()`, `searchTerms()`, `bidStrategies()`,
+`adSchedule()` and `setAdSchedule()`, the negative keyword lists, `assets()` and
+`assetGroups()`, `localServicesLeads()`, the conversion methods, and `query()` for a raw
+read-only GAQL SELECT. Changes need the `publish` scope as well as `ads`; the customer id
+has to name an account the connection's grant reaches.
