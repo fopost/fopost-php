@@ -16,11 +16,13 @@ final class BlogTest extends TestCase
             'siteUrl' => 'https://yourbrand.com',
             'topic' => 'Garden tools',
             'audience' => null,
+            'goal' => 'leads',
+            'focusTopics' => 'Pruning and tool care',
+            'avoidTopics' => null,
             'language' => 'en',
             'locationCode' => 2840,
             'cadencePerWeek' => 2,
             'reviewHoldDays' => 3,
-            'autoPublish' => true,
             'imageTier' => 'standard',
             'inBodyImages' => 2,
             'minWords' => 900,
@@ -31,6 +33,12 @@ final class BlogTest extends TestCase
             'targetPlatform' => null,
             'websiteUrl' => 'https://yourbrand.com/fopost/articles',
             'hasWebsiteSecret' => true,
+            'planRun' => [
+                'status' => 'done',
+                'error' => null,
+                'added' => 12,
+                'finishedAt' => '2026-10-10T09:00:00.000Z',
+            ],
             'keywordDataAvailable' => false,
             'updatedAt' => '2026-10-10T08:00:00.000Z',
         ];
@@ -74,6 +82,11 @@ final class BlogTest extends TestCase
         $this->assertSame('website', $settings->targetKind);
         $this->assertTrue($settings->hasWebsiteSecret);
         $this->assertSame(2840, $settings->locationCode);
+        $this->assertSame('leads', $settings->goal);
+        $this->assertSame('Pruning and tool care', $settings->focusTopics);
+        $this->assertNull($settings->avoidTopics);
+        $this->assertSame('done', $settings->planRun?->status);
+        $this->assertSame(12, $settings->planRun?->added);
     }
 
     public function testUpdateSettingsSendsTheWorkspaceInTheBodyAndReadsTheSecret(): void
@@ -127,6 +140,7 @@ final class BlogTest extends TestCase
             'source' => 'provider',
             'status' => 'suggested',
             'plannedFor' => null,
+            'fitReason' => 'Owners search this before buying a sharpener.',
             'createdAt' => '2026-10-10T08:00:00.000Z',
         ]]]);
         $keywords = $this->client()->blog()->listKeywords('w_1', ['suggested', 'planned'], 50);
@@ -138,6 +152,7 @@ final class BlogTest extends TestCase
         $this->assertCount(1, $keywords);
         $this->assertSame(1300, $keywords[0]->searchVolume);
         $this->assertSame(0.4, $keywords[0]->cpc);
+        $this->assertSame('Owners search this before buying a sharpener.', $keywords[0]->fitReason);
 
         $this->transport->push(202, ['data' => ['status' => 'queued']]);
         $this->client()->blog()->planKeywords('w_1', ['garden tools']);
@@ -165,6 +180,45 @@ final class BlogTest extends TestCase
         $this->client()->blog()->deleteKeyword('w_1', 'kw_2');
         $this->assertSame('DELETE', $this->transport->last()['method']);
         $this->assertStringContainsString('/blog/keywords/kw_2?workspaceId=w_1', $this->transport->last()['url']);
+    }
+
+    public function testSuggestSeedsPostsTheWorkspaceSeedsAndPrompt(): void
+    {
+        $this->transport->push(200, ['seeds' => ['garden shears', 'pruning saw']]);
+        $seeds = $this->client()->blog()->suggestSeeds('w_1', ['garden tools'], 'Lean towards beginners.');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertStringEndsWith('/blog/keywords/suggest', $this->transport->last()['url']);
+        $this->assertSame(
+            ['workspaceId' => 'w_1', 'seeds' => ['garden tools'], 'prompt' => 'Lean towards beginners.'],
+            $this->transport->lastJson(),
+        );
+        $this->assertSame(['garden shears', 'pruning saw'], $seeds);
+
+        $this->transport->push(200, ['seeds' => []]);
+        $this->assertSame([], $this->client()->blog()->suggestSeeds('w_1'));
+        $this->assertSame(['workspaceId' => 'w_1'], $this->transport->lastJson());
+    }
+
+    public function testSubmitArticleMovesItToReview(): void
+    {
+        $this->transport->push(200, ['data' => ['status' => 'in_review'] + $this->articleFixture()]);
+        $article = $this->client()->blog()->submitArticle('w_1', 'art_1');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $url = $this->transport->last()['url'];
+        $this->assertStringContainsString('/blog/articles/art_1/submit?workspaceId=w_1', $url);
+        $this->assertNull($this->transport->last()['body']);
+        $this->assertSame('in_review', $article->status);
+
+        $this->transport->push(409, ['error' => 'invalid_state', 'message' => 'Only a draft can be submitted']);
+        try {
+            $this->client()->blog()->submitArticle('w_1', 'art_1');
+            $this->fail('expected a 409');
+        } catch (ApiException $e) {
+            $this->assertSame(409, $e->getStatus());
+            $this->assertSame('invalid_state', $e->getErrorCode());
+        }
     }
 
     public function testArticlesReadTheSummaryAndTheFullBody(): void

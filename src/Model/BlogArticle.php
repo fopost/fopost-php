@@ -22,7 +22,7 @@ final class BlogArticle extends Model
         public readonly ?BlogArticleImage $featuredImage,
         public readonly array $tags,
         public readonly int $wordCount,
-        /** queued, writing, draft, scheduled, publishing, published, failed or rejected. */
+        /** queued, writing, draft, in_review, scheduled, publishing, published, failed or rejected. */
         public readonly string $status,
         /** plan, user or agent. */
         public readonly string $origin,

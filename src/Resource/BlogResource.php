@@ -16,10 +16,10 @@ use Fopost\Sdk\Undefined;
  * $client->blog(): planned keywords and the articles written from them, for
  * a website rather than a social network.
  *
- * Reads, settings and keyword edits need the `posts` scope. Anything that
- * spends credits (planKeywords, requestArticle, regenerateArticle) needs `ai`
- * and answers 402 (PaymentRequiredException) on an empty balance.
- * publishArticle needs `publish`. Every call names the workspace: as a query
+ * Reads, settings, keyword edits and submitArticle need the `posts` scope.
+ * Anything that spends credits (suggestSeeds, planKeywords, requestArticle,
+ * regenerateArticle) needs `ai` and answers 402 (PaymentRequiredException) on
+ * an empty balance. publishArticle needs `publish`. Every call names the workspace: as a query
  * parameter on GET, PATCH and DELETE routes with an id, in the body elsewhere.
  * Request and response fields are camelCase.
  */
@@ -34,7 +34,9 @@ final class BlogResource extends Resource
 
     /**
      * Partial update; only the keys you pass are sent (camelCase, as the API
-     * spells them: siteUrl, topic, cadencePerWeek, targetKind, websiteUrl, ...).
+     * spells them: siteUrl, topic, goal, focusTopics, avoidTopics, cadencePerWeek,
+     * reviewHoldDays, targetKind, websiteUrl, ...). reviewHoldDays is how many days
+     * before its planned date a picked keyword starts being written.
      *
      * Setting websiteUrl for the first time issues a signing secret, returned
      * once on the result's websiteSecret. The product_blog target is admin only.
@@ -85,8 +87,29 @@ final class BlogResource extends Resource
     }
 
     /**
+     * About 10 search terms from the blog goal and topics. Pass the current
+     * $seeds (up to 20) to refine them and $prompt (up to 500 characters) to
+     * steer. Spends credits.
+     *
+     * @param array<int, string>|null $seeds
+     * @return array<int, string>
+     */
+    public function suggestSeeds(string $workspaceId, ?array $seeds = null, ?string $prompt = null): array
+    {
+        $body = self::asArray(self::unwrap($this->http->post('/blog/keywords/suggest', self::compact([
+            'workspaceId' => $workspaceId,
+            'seeds' => $seeds,
+            'prompt' => $prompt,
+        ]))));
+        $found = $body['seeds'] ?? [];
+
+        return is_array($found) ? array_values(array_map(strval(...), $found)) : [];
+    }
+
+    /**
      * Queue a keyword research run. Spends credits and answers 202; the
-     * keywords arrive as `suggested` rows on listKeywords().
+     * keywords arrive as `suggested` rows on listKeywords() and the calendar is
+     * untouched. Follow the run on the settings' planRun.
      *
      * @param array<int, string>|null $seeds
      */
@@ -108,7 +131,10 @@ final class BlogResource extends Resource
         ]))));
     }
 
-    /** Partial update: pass null for plannedFor to clear it, omit it to leave it alone. */
+    /**
+     * Partial update: pass null for plannedFor to clear it, omit it to leave it
+     * alone. Setting status to `planned` picks the keyword; it takes the next free date.
+     */
     public function updateKeyword(
         string $workspaceId,
         string $keywordId,
@@ -180,10 +206,12 @@ final class BlogResource extends Resource
     }
 
     /**
-     * Partial update of a draft or scheduled article; only the keys you pass
-     * are sent (title, slug, excerpt, metaTitle, metaDescription, bodyMarkdown,
-     * tags, publishAt). publishAt puts the draft on the calendar, null returns
-     * it to review. An article that is not editable answers 409 invalid_state.
+     * Partial update of a draft, in-review, scheduled, failed or rejected
+     * article; only the keys you pass are sent (title, slug, excerpt, metaTitle,
+     * metaDescription, bodyMarkdown, tags, publishAt). publishAt approves an
+     * article in review and puts it on the calendar, null returns it to review;
+     * a draft answers 409 until it is submitted. An article that is not editable
+     * answers 409 invalid_state.
      *
      * @param array<string, mixed> $patch
      */
@@ -203,7 +231,16 @@ final class BlogResource extends Resource
         return $this->articleAction($workspaceId, $articleId, 'regenerate');
     }
 
-    /** Needs the publish scope. Answers 409 no_target when the blog has nowhere to publish. */
+    /** Move a draft, failed or rejected article to `in_review`. Any other state answers 409. */
+    public function submitArticle(string $workspaceId, string $articleId): BlogArticle
+    {
+        return $this->articleAction($workspaceId, $articleId, 'submit');
+    }
+
+    /**
+     * Needs the publish scope and an article in review; a draft answers 409 until
+     * it is submitted. Answers 409 no_target when the blog has nowhere to publish.
+     */
     public function publishArticle(string $workspaceId, string $articleId): BlogArticle
     {
         return $this->articleAction($workspaceId, $articleId, 'publish');
