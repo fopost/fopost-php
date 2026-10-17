@@ -7,29 +7,57 @@ namespace Fopost\Sdk\Resource;
 use DateTimeInterface;
 use Fopost\Sdk\Model\Ad;
 use Fopost\Sdk\Model\AdAccountTree;
+use Fopost\Sdk\Model\AdActivityResult;
+use Fopost\Sdk\Model\AdBusinessCenter;
 use Fopost\Sdk\Model\AdCampaign;
+use Fopost\Sdk\Model\AdCommentsPage;
 use Fopost\Sdk\Model\AdConnection;
 use Fopost\Sdk\Model\AdCreative;
+use Fopost\Sdk\Model\AdIdentity;
 use Fopost\Sdk\Model\AdInsightsReport;
+use Fopost\Sdk\Model\AdLibraryPage;
+use Fopost\Sdk\Model\AdProvider;
+use Fopost\Sdk\Model\AdLabel;
 use Fopost\Sdk\Model\AdSet;
 use Fopost\Sdk\Model\AdSource;
+use Fopost\Sdk\Model\AdStudy;
 use Fopost\Sdk\Model\Audience;
 use Fopost\Sdk\Model\AudiencesResult;
 use Fopost\Sdk\Model\BoostablePost;
+use Fopost\Sdk\Model\BidPricing;
 use Fopost\Sdk\Model\BulkAdStatusResult;
+use Fopost\Sdk\Model\ConversionMetrics;
+use Fopost\Sdk\Model\ConversionRule;
+use Fopost\Sdk\Model\CatalogBatchResult;
+use Fopost\Sdk\Model\CatalogProductsPage;
 use Fopost\Sdk\Model\CreatedAudience;
 use Fopost\Sdk\Model\ExternalAd;
+use Fopost\Sdk\Model\HighDemandPeriod;
+use Fopost\Sdk\Model\IosCampaignLimits;
 use Fopost\Sdk\Model\LeadFormDetail;
 use Fopost\Sdk\Model\LeadFormSource;
 use Fopost\Sdk\Model\LeadPage;
 use Fopost\Sdk\Model\LeadsFeedPage;
 use Fopost\Sdk\Model\LeadsPage;
 use Fopost\Sdk\Model\NetworkAd;
+use Fopost\Sdk\Model\PartnershipCreator;
+use Fopost\Sdk\Model\ProductCatalog;
+use Fopost\Sdk\Model\ProductCatalogsResult;
+use Fopost\Sdk\Model\ProductFeed;
+use Fopost\Sdk\Model\ProductFeedUpload;
+use Fopost\Sdk\Model\ProductSet;
 use Fopost\Sdk\Model\ReachEstimate;
+use Fopost\Sdk\Model\SupplyForecast;
+use Fopost\Sdk\Model\SparkPost;
+use Fopost\Sdk\Model\ReachFrequencyPrediction;
+use Fopost\Sdk\Model\ReachFrequencyResult;
 use Fopost\Sdk\Model\TargetingOption;
+use Fopost\Sdk\Model\ValueRuleSet;
 
 /**
- * $client->ads(): Meta ads, audiences and lead forms.
+ * $client->ads(): ads, catalogs, audiences, the ad archive and lead forms.
+ *
+ * Meta is what this resource covers; the Google-only surface is ads()->google().
  *
  * Every call needs the `ads` scope. boost(), create(), setStatus(), delete(), bulkSetStatus() and the
  * create, update, delete and duplicate calls on campaigns, ad sets and network ads spend money and
@@ -38,6 +66,14 @@ use Fopost\Sdk\Model\TargetingOption;
  */
 final class AdsResource extends Resource
 {
+    private ?GoogleAdsResource $google = null;
+
+    /** The Search surface no other network has: keywords, assets, conversions, GAQL. */
+    public function google(): GoogleAdsResource
+    {
+        return $this->google ??= new GoogleAdsResource($this->http);
+    }
+
     /**
      * Boosts and ads created through FoPost, with insights from their last refresh.
      *
@@ -88,15 +124,47 @@ final class AdsResource extends Resource
         );
     }
 
-    /** The Meta login URL; the caller finishes it in a browser. Method is `business` or `user`. */
-    public function authorizeMeta(string $workspaceId, ?string $method = null, ?string $returnTo = null): string
+    /**
+     * The ad networks this deployment knows, with what each one supports.
+     *
+     * @return array<int, AdProvider>
+     */
+    public function providers(): array
     {
+        return AdProvider::listFrom(self::unwrap($this->http->get('/ads/providers')));
+    }
+
+    /** The network's login URL; the caller finishes it in a browser. */
+    public function authorize(
+        string $provider,
+        string $workspaceId,
+        ?string $method = null,
+        ?string $returnTo = null,
+    ): string {
         $body = self::compact([
             'workspaceId' => $workspaceId,
             'method' => $method,
             'returnTo' => $returnTo,
         ]);
-        $result = self::unwrap($this->http->post('/ads/connections/meta/authorize', $body));
+        $result = self::unwrap($this->http->post("/ads/connections/{$provider}/authorize", $body));
+
+        return is_array($result) && is_string($result['url'] ?? null) ? $result['url'] : '';
+    }
+
+    /** @deprecated Use authorize('meta', ...). */
+    public function authorizeMeta(string $workspaceId, ?string $method = null, ?string $returnTo = null): string
+    {
+        return $this->authorize('meta', $workspaceId, $method, $returnTo);
+    }
+
+    /** The Google login URL; the caller finishes it in their own browser. */
+    public function authorizeGoogle(string $workspaceId, ?string $returnTo = null): string
+    {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'returnTo' => $returnTo,
+        ]);
+        $result = self::unwrap($this->http->post('/ads/connections/google/authorize', $body));
 
         return is_array($result) && is_string($result['url'] ?? null) ? $result['url'] : '';
     }
@@ -164,6 +232,7 @@ final class AdsResource extends Resource
         ?string $mediaUrl = null,
         ?bool $paused = null,
         ?string $urlTags = null,
+        ?string $sparkPostId = null,
     ): Ad {
         $body = self::compact([
             'workspaceId' => $workspaceId,
@@ -180,6 +249,7 @@ final class AdsResource extends Resource
             'mediaUrl' => $mediaUrl,
             'paused' => $paused,
             'urlTags' => $urlTags,
+            'sparkPostId' => $sparkPostId,
         ]);
 
         return Ad::fromArray(self::unwrap($this->http->post('/ads', $body)));
@@ -312,6 +382,147 @@ final class AdsResource extends Resource
         ])));
     }
 
+    /**
+     * TikTok's Business Centers, the one network-named read in this resource.
+     *
+     * @return array<int, AdBusinessCenter>
+     */
+    public function tiktokBusinessCenters(string $connectionId, ?string $workspaceId = null): array
+    {
+        return AdBusinessCenter::listFrom(self::unwrap($this->http->get(
+            '/ads/tiktok/business-centers',
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /**
+     * The accounts an ad can run as; an identity id is a $pageId.
+     *
+     * @return array<int, AdIdentity>
+     */
+    public function tiktokIdentities(
+        string $connectionId,
+        string $adAccountId,
+        ?string $workspaceId = null,
+    ): array {
+        return AdIdentity::listFrom(self::unwrap($this->http->get('/ads/tiktok/identities', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'ad_account_id' => $adAccountId,
+        ])));
+    }
+
+    /**
+     * Posts already live under an identity, each a candidate Spark ad.
+     *
+     * @return array<int, SparkPost>
+     */
+    public function sparkPosts(
+        string $connectionId,
+        string $adAccountId,
+        string $identityId,
+        ?string $workspaceId = null,
+    ): array {
+        return SparkPost::listFrom(self::unwrap($this->http->get('/ads/spark-posts', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'ad_account_id' => $adAccountId,
+            'identity_id' => $identityId,
+        ])));
+    }
+
+    /**
+     * Offline conversions. Identifiers are hashed before they leave FoPost.
+     *
+     * @param array<int, array<string, mixed>> $events up to 1000 per call
+     *
+     * @return int the number the network accepted
+     */
+    public function uploadConversions(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $pixelId,
+        array $events,
+    ): int {
+        $result = self::unwrap($this->http->post('/ads/conversions', [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'pixelId' => $pixelId,
+            'events' => $events,
+        ]));
+
+        return is_array($result) && isset($result['accepted']) ? (int) $result['accepted'] : 0;
+    }
+
+    /** One page of an ad's comments; pass `nextCursor` back as $after. */
+    public function comments(
+        string $connectionId,
+        string $adId,
+        ?string $after = null,
+        ?string $workspaceId = null,
+    ): AdCommentsPage {
+        return AdCommentsPage::fromArray(self::unwrap($this->http->get('/ads/comments', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'ad_id' => $adId,
+            'after' => $after,
+        ])));
+    }
+
+    /**
+     * Needs the `publish` scope as well as `ads`.
+     *
+     * @return string the reply's id on the network
+     */
+    public function replyToComment(
+        string $commentId,
+        string $workspaceId,
+        string $connectionId,
+        string $adId,
+        string $text,
+    ): string {
+        $result = self::unwrap($this->http->post("/ads/comments/{$commentId}/reply", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adId' => $adId,
+            'text' => $text,
+        ]));
+
+        return is_array($result) && isset($result['replyId']) ? (string) $result['replyId'] : '';
+    }
+
+    /** Needs the `publish` scope as well as `ads`. */
+    public function setCommentHidden(
+        string $commentId,
+        string $workspaceId,
+        string $connectionId,
+        string $adId,
+        bool $hidden,
+    ): void {
+        $this->http->post("/ads/comments/{$commentId}/hide", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adId' => $adId,
+            'hidden' => $hidden,
+        ]);
+    }
+
+    /** One already gone on the network succeeds. Needs `publish` as well as `ads`. */
+    public function deleteComment(
+        string $commentId,
+        string $workspaceId,
+        string $connectionId,
+        string $adId,
+    ): void {
+        $this->http->request('DELETE', "/ads/comments/{$commentId}", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adId' => $adId,
+        ]);
+    }
+
     /** Every campaign on the ad account with its ad sets and ads, read live. */
     public function accountTree(string $adAccountId, string $connectionId, ?string $workspaceId = null): AdAccountTree
     {
@@ -332,6 +543,7 @@ final class AdsResource extends Resource
         string $name,
         string $goal,
         ?bool $paused = null,
+        ?bool $smartPlus = null,
     ): AdCampaign {
         $body = self::compact([
             'workspaceId' => $workspaceId,
@@ -340,6 +552,7 @@ final class AdsResource extends Resource
             'name' => $name,
             'goal' => $goal,
             'paused' => $paused,
+            'smartPlus' => $smartPlus,
         ]);
 
         return AdCampaign::fromArray(self::unwrap($this->http->post('/ads/campaigns', $body)));
@@ -665,6 +878,218 @@ final class AdsResource extends Resource
         return is_array($result) && is_int($result['added'] ?? null) ? $result['added'] : 0;
     }
 
+    /**
+     * Add companies to a company-list audience. Returns the count the network took.
+     * Each row needs a name, domain, pageUrl or ticker; the rows are never stored.
+     *
+     * @param array<int, array<string, mixed>> $companies
+     */
+    public function addAudienceCompanies(
+        string $audienceId,
+        string $workspaceId,
+        string $connectionId,
+        array $companies,
+    ): int {
+        $result = self::unwrap($this->http->request(
+            'POST',
+            "/ads/audiences/{$audienceId}/companies",
+            ['companies' => array_values($companies)],
+            self::scope($workspaceId, $connectionId),
+        ));
+
+        return is_array($result) && is_int($result['added'] ?? null) ? $result['added'] : 0;
+    }
+
+    /**
+     * What the auction currently costs for that audience.
+     *
+     * @param array<string, mixed> $targeting
+     * @param array<int, string>   $placements
+     */
+    public function bidPricing(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $goal,
+        array $targeting,
+        ?array $placements = null,
+        ?string $bidType = null,
+    ): BidPricing {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'goal' => $goal,
+            'targeting' => $targeting,
+            'placements' => $placements,
+            'bidType' => $bidType,
+        ]);
+
+        return BidPricing::fromArray(self::unwrap($this->http->post('/ads/linkedin/bid-pricing', $body)));
+    }
+
+    /**
+     * What that audience would deliver at that budget.
+     *
+     * @param array<string, mixed> $targeting
+     * @param array<int, string>   $placements
+     */
+    public function supplyForecast(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $goal,
+        array $targeting,
+        ?array $placements = null,
+        ?int $budgetMinor = null,
+    ): SupplyForecast {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'goal' => $goal,
+            'targeting' => $targeting,
+            'placements' => $placements,
+            'budgetMinor' => $budgetMinor,
+        ]);
+
+        return SupplyForecast::fromArray(self::unwrap($this->http->post('/ads/linkedin/supply-forecast', $body)));
+    }
+
+    /** @return array<int, ConversionRule> */
+    public function conversionRules(?string $workspaceId, string $connectionId, string $adAccountId): array
+    {
+        return ConversionRule::listFrom(self::unwrap($this->http->get(
+            '/ads/linkedin/conversion-rules',
+            self::scope($workspaceId, $connectionId) + ['ad_account_id' => $adAccountId],
+        )));
+    }
+
+    /** Returns the new rule's id. */
+    public function createConversionRule(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+        string $type,
+        string $attribution,
+        ?int $postClickWindowDays = null,
+        ?int $viewThroughWindowDays = null,
+        ?int $valueMinor = null,
+        ?string $currency = null,
+    ): string {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+            'type' => $type,
+            'attribution' => $attribution,
+            'postClickWindowDays' => $postClickWindowDays,
+            'viewThroughWindowDays' => $viewThroughWindowDays,
+            'valueMinor' => $valueMinor,
+            'currency' => $currency,
+        ]);
+        $result = self::unwrap($this->http->post('/ads/linkedin/conversion-rules', $body));
+
+        return is_array($result) && is_string($result['id'] ?? null) ? $result['id'] : '';
+    }
+
+    public function getConversionRule(string $ruleId, ?string $workspaceId, string $connectionId): ConversionRule
+    {
+        return ConversionRule::fromArray(self::unwrap($this->http->get(
+            "/ads/linkedin/conversion-rules/{$ruleId}",
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /**
+     * Change a rule. Keys are the API's own: name, type, attribution,
+     * postClickWindowDays, viewThroughWindowDays, valueMinor, currency, enabled.
+     *
+     * @param array<string, mixed> $changes
+     */
+    public function updateConversionRule(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        array $changes,
+    ): ConversionRule {
+        return ConversionRule::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/ads/linkedin/conversion-rules/{$ruleId}",
+            $changes,
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /** Turns the rule off; the network keeps the history. */
+    public function deleteConversionRule(string $ruleId, string $workspaceId, string $connectionId): void
+    {
+        $this->http->request(
+            'DELETE',
+            "/ads/linkedin/conversion-rules/{$ruleId}",
+            null,
+            self::scope($workspaceId, $connectionId),
+        );
+    }
+
+    public function attachConversionRule(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        string $campaignId,
+    ): ConversionRule {
+        return $this->association('POST', $ruleId, $workspaceId, $connectionId, $campaignId);
+    }
+
+    public function detachConversionRule(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        string $campaignId,
+    ): ConversionRule {
+        return $this->association('DELETE', $ruleId, $workspaceId, $connectionId, $campaignId);
+    }
+
+    /** What the rule recorded between two YYYY-MM-DD days, inclusive. */
+    public function conversionMetrics(
+        string $ruleId,
+        ?string $workspaceId,
+        string $connectionId,
+        string $since,
+        string $until,
+    ): ConversionMetrics {
+        return ConversionMetrics::fromArray(self::unwrap($this->http->get(
+            "/ads/linkedin/conversion-rules/{$ruleId}/metrics",
+            self::scope($workspaceId, $connectionId) + ['since' => $since, 'until' => $until],
+        )));
+    }
+
+    /**
+     * Send conversions back to the network. Returns how many it took. Each event
+     * needs happenedAt in epoch milliseconds and an email or a clickId; the
+     * address is hashed inside the API and nothing about an event is stored.
+     *
+     * @param array<int, array<string, mixed>> $events
+     */
+    public function sendConversionEvents(
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        array $events,
+    ): int {
+        $result = self::unwrap($this->http->request(
+            'POST',
+            "/ads/linkedin/conversion-rules/{$ruleId}/events",
+            ['events' => array_values($events)],
+            self::scope($workspaceId, $connectionId),
+        ));
+
+        return is_array($result) && is_int($result['accepted'] ?? null) ? $result['accepted'] : 0;
+    }
+
+
     /** @param array<string, mixed> $targeting countries, ageMin, ageMax, gender, audienceIds, locations, ... */
     public function estimateReach(
         string $workspaceId,
@@ -788,10 +1213,732 @@ final class AdsResource extends Resource
         $this->http->request('DELETE', "/ads/lead-pages/{$pageId}", null, self::scope($workspaceId, $connectionId));
     }
 
+    // ─── Goals ──────────────────────────────────────────────────────
+
+    /**
+     * The goals this connection's network can run right now. Ask rather than assume:
+     * a goal the deployment is not set up for is absent here and is refused if sent.
+     *
+     * @return array<int, string>
+     */
+    public function goals(string $connectionId, ?string $workspaceId = null): array
+    {
+        $result = self::unwrap($this->http->get('/ads/goals', self::scope($workspaceId, $connectionId)));
+
+        return is_array($result) ? array_values(array_filter($result, 'is_string')) : [];
+    }
+
+    // ─── Product catalogs ───────────────────────────────────────────
+
+    /** Catalogs the connection's business portfolios reach. Read live, never stored. */
+    public function catalogs(string $connectionId, ?string $workspaceId = null): ProductCatalogsResult
+    {
+        return ProductCatalogsResult::fromArray(
+            self::unwrap($this->http->get('/ads/catalogs', self::scope($workspaceId, $connectionId)))
+        );
+    }
+
+    /** Created on the connection's business portfolio. Also needs the `publish` scope. */
+    public function createCatalog(
+        string $workspaceId,
+        string $connectionId,
+        string $name,
+        ?string $vertical = null,
+    ): ProductCatalog {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'name' => $name,
+            'vertical' => $vertical,
+        ]);
+
+        return ProductCatalog::fromArray(self::unwrap($this->http->post('/ads/catalogs', $body)));
+    }
+
+    public function getCatalog(string $catalogId, string $connectionId, ?string $workspaceId = null): ProductCatalog
+    {
+        return ProductCatalog::fromArray(
+            self::unwrap($this->http->get("/ads/catalogs/{$catalogId}", self::scope($workspaceId, $connectionId)))
+        );
+    }
+
+    /** Also needs the `publish` scope. */
+    public function updateCatalog(
+        string $catalogId,
+        string $workspaceId,
+        string $connectionId,
+        string $name,
+    ): ProductCatalog {
+        $body = ['workspaceId' => $workspaceId, 'connectionId' => $connectionId, 'name' => $name];
+
+        return ProductCatalog::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/ads/catalogs/{$catalogId}",
+            $body,
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /** Deletes every product, feed and set in it. Also needs the `publish` scope. */
+    public function deleteCatalog(string $catalogId, string $workspaceId, string $connectionId): void
+    {
+        $this->http->request('DELETE', "/ads/catalogs/{$catalogId}", null, self::scope($workspaceId, $connectionId));
+    }
+
+    /** One page of products; pass `nextCursor` back as `$after`. */
+    public function catalogProducts(
+        string $catalogId,
+        string $connectionId,
+        ?string $workspaceId = null,
+        ?string $after = null,
+    ): CatalogProductsPage {
+        $query = self::scope($workspaceId, $connectionId) + ['after' => $after];
+
+        return CatalogProductsPage::fromArray(
+            self::unwrap($this->http->get("/ads/catalogs/{$catalogId}/products", $query))
+        );
+    }
+
+    /**
+     * Up to 500 upserts and deletes in one batch, keyed by your own `retailerId`.
+     * Also needs the `publish` scope.
+     *
+     * @param array<int, array<string, mixed>> $products
+     */
+    public function writeCatalogProducts(
+        string $catalogId,
+        string $workspaceId,
+        string $connectionId,
+        array $products,
+    ): CatalogBatchResult {
+        $body = [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'products' => array_values($products),
+        ];
+
+        return CatalogBatchResult::fromArray(
+            self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/products", $body))
+        );
+    }
+
+    /** @return array<int, ProductFeed> */
+    public function productFeeds(string $catalogId, string $connectionId, ?string $workspaceId = null): array
+    {
+        return ProductFeed::listFrom(
+            self::unwrap($this->http->get("/ads/catalogs/{$catalogId}/feeds", self::scope($workspaceId, $connectionId)))
+        );
+    }
+
+    /** `$schedule` is HOURLY, DAILY or WEEKLY and needs `$url`. Also needs the `publish` scope. */
+    public function createProductFeed(
+        string $catalogId,
+        string $workspaceId,
+        string $connectionId,
+        string $name,
+        ?string $url = null,
+        ?string $schedule = null,
+    ): ProductFeed {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'name' => $name,
+            'url' => $url,
+            'schedule' => $schedule,
+        ]);
+
+        return ProductFeed::fromArray(self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/feeds", $body)));
+    }
+
+    /** Also needs the `publish` scope. */
+    public function deleteProductFeed(
+        string $catalogId,
+        string $feedId,
+        string $workspaceId,
+        string $connectionId,
+    ): void {
+        $this->http->request(
+            'DELETE',
+            "/ads/catalogs/{$catalogId}/feeds/{$feedId}",
+            null,
+            self::scope($workspaceId, $connectionId),
+        );
+    }
+
+    /**
+     * Each run the network made of the feed.
+     *
+     * @return array<int, ProductFeedUpload>
+     */
+    public function feedUploads(
+        string $catalogId,
+        string $feedId,
+        string $connectionId,
+        ?string $workspaceId = null,
+    ): array {
+        return ProductFeedUpload::listFrom(self::unwrap($this->http->get(
+            "/ads/catalogs/{$catalogId}/feeds/{$feedId}/uploads",
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /** Fetches the feed now; the id of the run. Also needs the `publish` scope. */
+    public function startFeedUpload(
+        string $catalogId,
+        string $feedId,
+        string $workspaceId,
+        string $connectionId,
+        ?string $url = null,
+    ): string {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'url' => $url,
+        ]);
+        $result = self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/feeds/{$feedId}/uploads", $body));
+        $id = is_array($result) ? ($result['id'] ?? null) : null;
+
+        return is_string($id) ? $id : '';
+    }
+
+    /**
+     * A catalog ad runs from a product set, not the whole catalog.
+     *
+     * @return array<int, ProductSet>
+     */
+    public function productSets(string $catalogId, string $connectionId, ?string $workspaceId = null): array
+    {
+        return ProductSet::listFrom(self::unwrap($this->http->get(
+            "/ads/catalogs/{$catalogId}/product-sets",
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /**
+     * Without a `$filter` the set is the whole catalog. Also needs the `publish` scope.
+     *
+     * @param array<string, mixed>|null $filter
+     */
+    public function createProductSet(
+        string $catalogId,
+        string $workspaceId,
+        string $connectionId,
+        string $name,
+        ?array $filter = null,
+    ): ProductSet {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'name' => $name,
+            'filter' => $filter,
+        ]);
+
+        return ProductSet::fromArray(
+            self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/product-sets", $body))
+        );
+    }
+
+    /**
+     * Also needs the `publish` scope.
+     *
+     * @param array<string, mixed>|null $filter
+     */
+    public function updateProductSet(
+        string $catalogId,
+        string $setId,
+        string $workspaceId,
+        string $connectionId,
+        string $name,
+        ?array $filter = null,
+    ): ProductSet {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'name' => $name,
+            'filter' => $filter,
+        ]);
+
+        return ProductSet::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/ads/catalogs/{$catalogId}/product-sets/{$setId}",
+            $body,
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    /** Also needs the `publish` scope. */
+    public function deleteProductSet(
+        string $catalogId,
+        string $setId,
+        string $workspaceId,
+        string $connectionId,
+    ): void {
+        $this->http->request(
+            'DELETE',
+            "/ads/catalogs/{$catalogId}/product-sets/{$setId}",
+            null,
+            self::scope($workspaceId, $connectionId),
+        );
+    }
+
+    // ─── Reach and frequency ────────────────────────────────────────
+
+    public function reachFrequency(
+        string $connectionId,
+        string $adAccountId,
+        ?string $workspaceId = null,
+    ): ReachFrequencyResult {
+        return ReachFrequencyResult::fromArray(self::unwrap($this->http->get(
+            '/ads/reach-frequency',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /**
+     * Prices a flight. Nothing is bought until you reserve it.
+     *
+     * @param array<string, mixed> $targeting
+     * @param array<int, string> $placements
+     */
+    public function createReachFrequency(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+        array $targeting,
+        array $placements,
+        int $budgetMinor,
+        DateTimeInterface|string $startAt,
+        DateTimeInterface|string $endAt,
+        ?int $frequencyCap = null,
+    ): ReachFrequencyPrediction {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+            'targeting' => $targeting,
+            'placements' => array_values($placements),
+            'budgetMinor' => $budgetMinor,
+            'startAt' => self::iso($startAt),
+            'endAt' => self::iso($endAt),
+            'frequencyCap' => $frequencyCap,
+        ]);
+
+        return ReachFrequencyPrediction::fromArray(self::unwrap($this->http->post('/ads/reach-frequency', $body)));
+    }
+
+    public function getReachFrequency(
+        string $predictionId,
+        string $connectionId,
+        string $adAccountId,
+        ?string $workspaceId = null,
+    ): ReachFrequencyPrediction {
+        return ReachFrequencyPrediction::fromArray(self::unwrap($this->http->get(
+            "/ads/reach-frequency/{$predictionId}",
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /** Holds the inventory the prediction priced. Also needs the `publish` scope. */
+    public function reserveReachFrequency(
+        string $predictionId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): ReachFrequencyPrediction {
+        return $this->reachFrequencyAction($predictionId, 'reserve', $workspaceId, $connectionId, $adAccountId);
+    }
+
+    /** Also needs the `publish` scope. */
+    public function cancelReachFrequency(
+        string $predictionId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): ReachFrequencyPrediction {
+        return $this->reachFrequencyAction($predictionId, 'cancel', $workspaceId, $connectionId, $adAccountId);
+    }
+
+    // ─── Ad Library ─────────────────────────────────────────────────
+
+    /**
+     * The public ad archive: ads anyone is running, by keyword or by Page. Read live on
+     * every call and stored nowhere, so an ad that stops running is simply absent next time.
+     *
+     * @param array<int, string> $countries
+     * @param array<int, string>|null $pageIds
+     */
+    public function library(
+        string $connectionId,
+        array $countries,
+        ?string $workspaceId = null,
+        ?string $q = null,
+        ?array $pageIds = null,
+        ?string $activeStatus = null,
+        ?int $limit = null,
+        ?string $after = null,
+    ): AdLibraryPage {
+        $query = self::scope($workspaceId, $connectionId) + [
+            'countries' => implode(',', $countries),
+            'q' => $q,
+            'page_ids' => $pageIds !== null ? implode(',', $pageIds) : null,
+            'active_status' => $activeStatus,
+            'limit' => $limit !== null ? (string) $limit : null,
+            'after' => $after,
+        ];
+
+        return AdLibraryPage::fromArray(self::unwrap($this->http->get('/ads/library', $query)));
+    }
+
+    // ─── Partnership ads ────────────────────────────────────────────
+
+    /**
+     * Creators who allowlisted this Page to run partnership ads on their posts.
+     *
+     * @return array<int, PartnershipCreator>
+     */
+    public function partnershipCreators(string $connectionId, string $pageId, ?string $workspaceId = null): array
+    {
+        $query = self::scope($workspaceId, $connectionId) + ['page_id' => $pageId];
+
+        return PartnershipCreator::listFrom(self::unwrap($this->http->get('/ads/partnership/creators', $query)));
+    }
+
+    /**
+     * Asks a creator for permission; the list as it now stands.
+     *
+     * @return array<int, PartnershipCreator>
+     */
+    public function requestPartnership(
+        string $workspaceId,
+        string $connectionId,
+        string $pageId,
+        string $creatorId,
+    ): array {
+        $body = [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'pageId' => $pageId,
+            'creatorId' => $creatorId,
+        ];
+
+        return PartnershipCreator::listFrom(self::unwrap($this->http->post('/ads/partnership/creators', $body)));
+    }
+
+    public function revokePartnership(
+        string $creatorId,
+        string $workspaceId,
+        string $connectionId,
+        string $pageId,
+    ): void {
+        $query = self::scope($workspaceId, $connectionId) + ['page_id' => $pageId];
+        $this->http->request('DELETE', "/ads/partnership/creators/{$creatorId}", null, $query);
+    }
+
+    // ─── Ad account settings ────────────────────────────────────────
+
+    /** Who changed what on the ad account, and when. Dates are `YYYY-MM-DD`. */
+    public function accountActivity(
+        string $connectionId,
+        string $adAccountId,
+        ?string $workspaceId = null,
+        ?string $since = null,
+        ?string $until = null,
+    ): AdActivityResult {
+        $query = self::account($workspaceId, $connectionId, $adAccountId) + ['since' => $since, 'until' => $until];
+
+        return AdActivityResult::fromArray(self::unwrap($this->http->get('/ads/account/activity', $query)));
+    }
+
+    /** @return array<int, AdLabel> */
+    public function labels(string $connectionId, string $adAccountId, ?string $workspaceId = null): array
+    {
+        return AdLabel::listFrom(self::unwrap($this->http->get(
+            '/ads/account/labels',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    public function createLabel(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+    ): AdLabel {
+        return AdLabel::fromArray(self::unwrap($this->http->post('/ads/account/labels', [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+        ])));
+    }
+
+    public function updateLabel(
+        string $labelId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+    ): AdLabel {
+        $body = [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+        ];
+
+        return AdLabel::fromArray(self::unwrap($this->http->request(
+            'PATCH',
+            "/ads/account/labels/{$labelId}",
+            $body,
+            self::scope($workspaceId, $connectionId),
+        )));
+    }
+
+    public function deleteLabel(
+        string $labelId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): void {
+        $this->http->request(
+            'DELETE',
+            "/ads/account/labels/{$labelId}",
+            null,
+            self::account($workspaceId, $connectionId, $adAccountId),
+        );
+    }
+
+    /** Keeps whatever labels the object already carries. `$level` is campaign, ad_set or ad. */
+    public function applyLabel(
+        string $labelId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $objectId,
+        string $level,
+    ): void {
+        $this->http->post("/ads/account/labels/{$labelId}/apply", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'objectId' => $objectId,
+            'level' => $level,
+        ]);
+    }
+
+    /** @return array<int, AdStudy> */
+    public function studies(string $connectionId, string $adAccountId, ?string $workspaceId = null): array
+    {
+        return AdStudy::listFrom(self::unwrap($this->http->get(
+            '/ads/account/studies',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /**
+     * Splits traffic evenly across two to five cells of `name` and `objectIds`.
+     *
+     * @param array<int, array<string, mixed>> $cells
+     */
+    public function createStudy(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+        DateTimeInterface|string $startAt,
+        DateTimeInterface|string $endAt,
+        array $cells,
+        ?string $description = null,
+    ): AdStudy {
+        $body = self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+            'startAt' => self::iso($startAt),
+            'endAt' => self::iso($endAt),
+            'cells' => array_values($cells),
+            'description' => $description,
+        ]);
+
+        return AdStudy::fromArray(self::unwrap($this->http->post('/ads/account/studies', $body)));
+    }
+
+    public function getStudy(
+        string $studyId,
+        string $connectionId,
+        string $adAccountId,
+        ?string $workspaceId = null,
+    ): AdStudy {
+        return AdStudy::fromArray(self::unwrap($this->http->get(
+            "/ads/account/studies/{$studyId}",
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    public function deleteStudy(
+        string $studyId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): void {
+        $this->http->request(
+            'DELETE',
+            "/ads/account/studies/{$studyId}",
+            null,
+            self::account($workspaceId, $connectionId, $adAccountId),
+        );
+    }
+
+    /**
+     * How many iOS 14 campaigns the account may run at once, per app.
+     *
+     * @return array<int, IosCampaignLimits>
+     */
+    public function iosCampaignLimits(string $connectionId, string $adAccountId, ?string $workspaceId = null): array
+    {
+        return IosCampaignLimits::listFrom(self::unwrap($this->http->get(
+            '/ads/account/ios-limits',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /** @return array<int, HighDemandPeriod> */
+    public function highDemandPeriods(string $connectionId, string $adAccountId, ?string $workspaceId = null): array
+    {
+        return HighDemandPeriod::listFrom(self::unwrap($this->http->get(
+            '/ads/account/high-demand-periods',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /**
+     * Tells the network to expect heavier spend over a window, so pacing allows for it.
+     * `$budgetValueType` is ABSOLUTE or MULTIPLIER.
+     */
+    public function createHighDemandPeriod(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        DateTimeInterface|string $startAt,
+        DateTimeInterface|string $endAt,
+        float $budgetValue,
+        string $budgetValueType,
+    ): HighDemandPeriod {
+        return HighDemandPeriod::fromArray(self::unwrap($this->http->post('/ads/account/high-demand-periods', [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'startAt' => self::iso($startAt),
+            'endAt' => self::iso($endAt),
+            'budgetValue' => $budgetValue,
+            'budgetValueType' => $budgetValueType,
+        ])));
+    }
+
+    public function deleteHighDemandPeriod(
+        string $periodId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): void {
+        $this->http->request(
+            'DELETE',
+            "/ads/account/high-demand-periods/{$periodId}",
+            null,
+            self::account($workspaceId, $connectionId, $adAccountId),
+        );
+    }
+
+    /** @return array<int, ValueRuleSet> */
+    public function valueRuleSets(string $connectionId, string $adAccountId, ?string $workspaceId = null): array
+    {
+        return ValueRuleSet::listFrom(self::unwrap($this->http->get(
+            '/ads/account/value-rule-sets',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /**
+     * Weights conversions so some audiences count for more than others.
+     *
+     * @param array<int, array<string, mixed>> $rules
+     */
+    public function createValueRuleSet(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+        array $rules,
+    ): ValueRuleSet {
+        return ValueRuleSet::fromArray(self::unwrap($this->http->post('/ads/account/value-rule-sets', [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+            'rules' => array_values($rules),
+        ])));
+    }
+
+    public function deleteValueRuleSet(
+        string $ruleSetId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): void {
+        $this->http->request(
+            'DELETE',
+            "/ads/account/value-rule-sets/{$ruleSetId}",
+            null,
+            self::account($workspaceId, $connectionId, $adAccountId),
+        );
+    }
+
+    private function reachFrequencyAction(
+        string $predictionId,
+        string $action,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): ReachFrequencyPrediction {
+        $body = [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+        ];
+
+        return ReachFrequencyPrediction::fromArray(
+            self::unwrap($this->http->post("/ads/reach-frequency/{$predictionId}/{$action}", $body))
+        );
+    }
+
+    /** @return array<string, string|null> */
+    private static function account(?string $workspaceId, string $connectionId, string $adAccountId): array
+    {
+        return self::scope($workspaceId, $connectionId) + ['ad_account_id' => $adAccountId];
+    }
+
     /** @return array<string, string|null> */
     private static function scope(?string $workspaceId, string $connectionId): array
     {
         return ['workspace_id' => $workspaceId, 'connection_id' => $connectionId];
+    }
+
+    private function association(
+        string $method,
+        string $ruleId,
+        string $workspaceId,
+        string $connectionId,
+        string $campaignId,
+    ): ConversionRule {
+        return ConversionRule::fromArray(self::unwrap($this->http->request(
+            $method,
+            "/ads/linkedin/conversion-rules/{$ruleId}/associations",
+            ['campaignId' => $campaignId],
+            self::scope($workspaceId, $connectionId),
+        )));
     }
 
     /**

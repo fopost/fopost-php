@@ -91,7 +91,7 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
   endpoint; `Page` is `IteratorAggregate + Countable + ArrayAccess` and read-only.
 
 **Resources wired today:** `posts`, `accounts`, `accountGroups`, `workspaces`, `labels`, `ai`,
-`inbox`, `ads`, `media`, `validate`. There is no `communities`, `webhooks`, `analytics`, or
+`inbox`, `contacts`, `broadcasts`, `sequences`, `ads`, `media`, `validate`. There is no `communities`, `webhooks`, `analytics`, or
 `automations` resource here — reach those through the escape hatch `Client::request()` until one
 is added.
 
@@ -102,6 +102,17 @@ is added.
   download path). The read and refresh bodies are snake_case, the item `PATCH` is camelCase
   (`snoozedUntil`), and list `meta` is `{page, perPage, total}` — `PageMeta` reads `page` as
   `currentPage` for it.
+- `contacts` (scope `inbox`) covers `/contacts` (list/get/create/update/delete), `import`,
+  `{id}/conversations` and the `/contacts/fields` family. `createField` puts the workspace on the
+  query string, not in the body, because the handler reads it from there. The list envelope is
+  `{data, pagination}` rather than `{data, meta}`, so `list()` builds its own `PageMeta`.
+  `conversationAnalytics()` reaches `/analytics/inbox/conversations` and needs the `analytics`
+  scope instead.
+- `broadcasts` and `sequences` (scope `inbox`, plus `publish` on the sends) cover `/broadcasts`
+  and `/sequences`. Both list envelopes are `{data, pagination}` like contacts, so each builds its
+  own `PageMeta`. A recipient's `skipReason` is the messaging window's record: `window_closed`
+  means the network's 24-hour window had shut and nothing was attempted, so a sent count lower
+  than the audience is correct rather than a failure.
 - `ads` (scope `ads`) covers the full `/ads` family: ads, external ads, boostable posts,
   connections (+ Meta authorize), sources, boost, create, refresh, status, delete, audiences,
   targeting search, lead forms and leads, plus the campaign tree (campaigns, ad sets, network ads,
@@ -112,10 +123,16 @@ is added.
   and are read live. An empty update or duplicate body goes out as `{}` because the API rejects none. Request
   bodies are camelCase; query params stay snake_case. `Resource::page()` is the shared
   `{data, meta}` → `Page` helper.
-- `media` (scope `posts`) is direct upload only: `presign()` → `PresignedUpload`, `complete()` →
-  `MediaAsset`, and `uploadDirect()` which does both around a raw `PUT` of the bytes to the
-  presigned URL through `HttpClient::sendRaw()` (no API key, no JSON, no retry; a non-2xx throws
-  and `complete` is never called). Bodies are camelCase.
+- `media` (scope `posts`) is direct upload only: `limits()` → `UploadLimits`, `presign()` →
+  `PresignedUpload`, `complete()` → `MediaAsset`, and `uploadDirect()` which does both around a raw
+  `PUT` of the bytes to the presigned URL through `HttpClient::sendRaw()` (no API key, no JSON, no
+  retry; a non-2xx throws and `complete` is never called). Bodies are camelCase. There is no size
+  constant in the SDK: the ceiling is whatever `limits()` answers, and an oversize file is a `413`
+  `file_too_large` that falls through to `ApiException` with `max_file_bytes` on `->body`.
+- `posts()->create()` and `update()` take `files`. Every file at or under
+  `limits()->multipartMaxFileBytes` (100 MB when the call fails) goes in one multipart request through
+  `HttpClient::requestMultipart()` (`post` JSON field + `files` parts); otherwise each file goes
+  through `uploadDirect()` and is attached to the first block as a media item before the JSON request.
 
 ## API Contract
 

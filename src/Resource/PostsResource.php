@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Fopost\Sdk\Resource;
 
 use DateTimeInterface;
+use Fopost\Sdk\Exception\FopostException;
+use Fopost\Sdk\Http\HttpClient;
 use Fopost\Sdk\Model\ContentBlock;
 use Fopost\Sdk\Model\Delivery;
+use Fopost\Sdk\Model\MediaAsset;
 use Fopost\Sdk\Model\Page;
 use Fopost\Sdk\Model\PageMeta;
 use Fopost\Sdk\Model\Post;
@@ -18,6 +21,9 @@ use InvalidArgumentException;
 /** $client->posts(): create, schedule, publish, and inspect posts. */
 final class PostsResource extends Resource
 {
+    /** What one multipart part may carry when the limits call cannot answer. */
+    public const DEFAULT_MULTIPART_MAX_FILE_BYTES = 100 * 1024 * 1024;
+
     /**
      * One page of posts. The result iterates over its items directly.
      *
@@ -115,6 +121,8 @@ final class PostsResource extends Resource
      * @param array<int, string>|null $labels
      * @param array<string, mixed>|null $settings
      * @param array<string, mixed> $extra
+     * @param array<int, string|array{filename: string, contents: string, mimeType?: string}>|null $files
+     *   Paths or in-memory files, attached to the first content block.
      */
     public function create(
         string $workspaceId,
@@ -129,6 +137,7 @@ final class PostsResource extends Resource
         ?array $settings = null,
         array $extra = [],
         ?string $accountGroupId = null,
+        ?array $files = null,
     ): Post {
         $body = [
             'workspace_id' => $workspaceId,
@@ -149,6 +158,14 @@ final class PostsResource extends Resource
 
         $body = array_merge($body, $optional, $extra);
 
+        if ($files !== null && $files !== []) {
+            $files = self::normalizeFiles($files);
+            if (self::fitMultipart($files, $this->multipartCeiling($workspaceId))) {
+                return Post::fromArray(self::unwrap($this->sendMultipart('POST', '/posts', $body, $files)));
+            }
+            $body['content'] = self::attachMedia($body['content'], $this->uploadAll($workspaceId, $files));
+        }
+
         return Post::fromArray(self::unwrap($this->http->post('/posts', $body)));
     }
 
@@ -160,6 +177,8 @@ final class PostsResource extends Resource
      * @param array<int, string>|Undefined $labels
      * @param array<string, mixed>|Undefined $settings
      * @param array<string, mixed> $extra
+     * @param array<int, string|array{filename: string, contents: string, mimeType?: string}>|null $files
+     *   Attached to the first content block; with no $content, to the post's existing first block.
      */
     public function update(
         string $postId,
@@ -173,6 +192,7 @@ final class PostsResource extends Resource
         string|Undefined $contentType = Undefined::Value,
         array|Undefined $settings = Undefined::Value,
         array $extra = [],
+        ?array $files = null,
     ): Post {
         $body = [];
         if (!Undefined::is($content)) {
@@ -207,6 +227,16 @@ final class PostsResource extends Resource
             $body['settings'] = $settings;
         }
         $body = array_merge($body, $extra);
+
+        if ($files !== null && $files !== []) {
+            $files = self::normalizeFiles($files);
+            if (self::fitMultipart($files, $this->multipartCeiling(null))) {
+                return Post::fromArray(self::unwrap($this->sendMultipart('PUT', "/posts/{$postId}", $body, $files)));
+            }
+            $post = $this->get($postId);
+            $content = $body['content'] ?? self::blocksOf($post);
+            $body['content'] = self::attachMedia($content, $this->uploadAll((string) $post->workspaceId, $files));
+        }
 
         return Post::fromArray(self::unwrap($this->http->put("/posts/{$postId}", $body)));
     }
@@ -314,6 +344,144 @@ final class PostsResource extends Resource
                     'fopost: a content block must be a string, an array, or a ContentBlock',
                 );
             }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A path becomes {filename, contents, mimeType}; an array is checked for the same keys.
+     *
+     * @param array<int, string|array<string, mixed>> $files
+     * @return array<int, array{filename: string, contents: string, mimeType: string}>
+     */
+    private static function normalizeFiles(array $files): array
+    {
+        $out = [];
+        foreach ($files as $file) {
+            if (is_string($file)) {
+                $contents = is_file($file) ? file_get_contents($file) : false;
+                if ($contents === false) {
+                    throw new InvalidArgumentException("fopost: cannot read file {$file}");
+                }
+                $mime = function_exists('mime_content_type') ? mime_content_type($file) : false;
+                $out[] = [
+                    'filename' => basename($file),
+                    'contents' => $contents,
+                    'mimeType' => is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream',
+                ];
+                continue;
+            }
+            $filename = $file['filename'] ?? null;
+            $contents = $file['contents'] ?? null;
+            if (!is_string($filename) || $filename === '' || !is_string($contents)) {
+                throw new InvalidArgumentException('fopost: a file needs a filename and its contents');
+            }
+            $mime = $file['mimeType'] ?? null;
+            $out[] = [
+                'filename' => $filename,
+                'contents' => $contents,
+                'mimeType' => is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream',
+            ];
+        }
+
+        return $out;
+    }
+
+    /** @param array<int, array{filename: string, contents: string, mimeType: string}> $files */
+    private static function fitMultipart(array $files, int $ceiling): bool
+    {
+        foreach ($files as $file) {
+            if (strlen($file['contents']) > $ceiling) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function multipartCeiling(?string $workspaceId): int
+    {
+        try {
+            $ceiling = (new MediaResource($this->http))->limits($workspaceId)->multipartMaxFileBytes;
+        } catch (FopostException) {
+            return self::DEFAULT_MULTIPART_MAX_FILE_BYTES;
+        }
+
+        return $ceiling > 0 ? $ceiling : self::DEFAULT_MULTIPART_MAX_FILE_BYTES;
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     * @param array<int, array{filename: string, contents: string, mimeType: string}> $files
+     */
+    private function sendMultipart(string $method, string $path, array $body, array $files): mixed
+    {
+        return $this->http->requestMultipart($method, $path, ['post' => HttpClient::encode($body)], $files, 'files');
+    }
+
+    /**
+     * @param array<int, array{filename: string, contents: string, mimeType: string}> $files
+     * @return array<int, array<string, mixed>>
+     */
+    private function uploadAll(string $workspaceId, array $files): array
+    {
+        $media = new MediaResource($this->http);
+        $items = [];
+        foreach ($files as $file) {
+            $asset = $media->uploadDirect($workspaceId, $file['filename'], $file['mimeType'], $file['contents']);
+            $items[] = self::mediaItem($asset, $file['mimeType']);
+        }
+
+        return $items;
+    }
+
+    /** @return array<string, mixed> */
+    private static function mediaItem(MediaAsset $asset, string $mimeType): array
+    {
+        $type = match (true) {
+            $mimeType === 'image/gif' => 'gif',
+            str_starts_with($mimeType, 'video/') => 'video',
+            default => 'image',
+        };
+
+        return self::compact([
+            'type' => $type,
+            'name' => $asset->name,
+            'url' => $asset->url,
+            'size' => $asset->size,
+        ]);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $content
+     * @param array<int, array<string, mixed>> $items
+     * @return array<int, array<string, mixed>>
+     */
+    private static function attachMedia(array $content, array $items): array
+    {
+        if ($content === []) {
+            $content = [['text' => '']];
+        }
+        $existing = $content[0]['media'] ?? [];
+        $content[0]['media'] = array_merge(is_array($existing) ? array_values($existing) : [], $items);
+
+        return $content;
+    }
+
+    /**
+     * The post's blocks as request content, so a PUT keeps the text it already has.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function blocksOf(Post $post): array
+    {
+        $out = [];
+        foreach ($post->content as $block) {
+            $out[] = [
+                'text' => $block->text ?? '',
+                'media' => array_map(static fn ($item) => $item->toArray(), $block->media),
+            ];
         }
 
         return $out;
