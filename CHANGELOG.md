@@ -4,8 +4,25 @@ All notable changes to `fopost/sdk` are documented here.
 
 ## Unreleased
 
+### Removed
+
+- **Breaking:** `BlogSettings::$autoPublish` is gone, and `updateSettings()` no longer takes
+  `autoPublish`. Nothing publishes without approval: a draft goes to `in_review` through
+  `submitArticle()` first.
+
 ### Added
 
+- `$client->blog()->suggestSeeds($workspaceId, $seeds, $prompt)` returns about 10 search
+  terms from the blog goal and topics (`ai` scope; an empty balance is a
+  `PaymentRequiredException`).
+- `$client->blog()->submitArticle()` moves a draft, failed or rejected article to `in_review`
+  (`posts` scope, 409 from any other state). `publishArticle()` and `publishAt` now need an
+  article in review, so a draft answers 409 until it is submitted.
+- `BlogSettings` carries `goal`, `focusTopics`, `avoidTopics` and `planRun` (a `BlogPlanRun`),
+  and `updateSettings()` accepts `goal`, `focusTopics` and `avoidTopics`. `BlogKeyword::$fitReason`,
+  `Blog::GOALS`, and `in_review` in `Blog::ARTICLE_STATUSES`. `planKeywords()` no longer fills
+  the calendar: setting a keyword to `planned` picks it, and `reviewHoldDays` is how many days
+  before its date it starts being written.
 - `$client->blog()` wraps `/blog`: settings (`getSettings`, `updateSettings`,
   `rotateWebsiteSecret`, `testWebsite`), keywords (`listKeywords`, `planKeywords`,
   `addKeyword`, `updateKeyword`, `deleteKeyword`) and articles (`listArticles`,

@@ -418,7 +418,9 @@ foreach ($client->sequences()->enrollments($sequence->id) as $enrollment) {
 
 ## Blog
 
-Keywords planned for a website and the articles written from them. A post goes to a social network; an article goes to a website. Reads, settings and keyword edits need the `posts` scope; `planKeywords()`, `requestArticle()` and `regenerateArticle()` spend credits and need `ai` (an empty balance is a `PaymentRequiredException`); `publishArticle()` needs `publish`.
+Keywords planned for a website and the articles written from them. A post goes to a social network; an article goes to a website. Reads, settings, keyword edits and `submitArticle()` need the `posts` scope; `suggestSeeds()`, `planKeywords()`, `requestArticle()` and `regenerateArticle()` spend credits and need `ai` (an empty balance is a `PaymentRequiredException`); `publishArticle()` needs `publish`.
+
+`suggestSeeds()` proposes search terms from the blog `goal` and topics, `planKeywords()` researches them into `suggested` keywords, and setting a keyword's status to `planned` puts it on the calendar. A draft is submitted for approval with `submitArticle()` before it can be published.
 
 ```php
 $article = $client->blog()->requestArticle(
@@ -433,6 +435,7 @@ foreach ($client->blog()->listArticles($workspaceId, status: 'draft') as $draft)
 }
 
 $full = $client->blog()->getArticle($workspaceId, $article->id);
+$client->blog()->submitArticle($workspaceId, $full->id);
 $client->blog()->publishArticle($workspaceId, $full->id);
 ```
 
