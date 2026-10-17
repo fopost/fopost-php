@@ -46,6 +46,7 @@ final class Platforms
         'nostr',
         'whop',
         'skool',
+        'whatsapp',
     ];
 
     /** @var array<int, string> */

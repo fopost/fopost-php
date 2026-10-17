@@ -23,6 +23,7 @@ use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\SequencesResource;
 use Fopost\Sdk\Resource\ValidateResource;
+use Fopost\Sdk\Resource\WhatsappResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
 
@@ -59,6 +60,7 @@ final class Client
     private readonly AdsResource $ads;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
+    private readonly WhatsappResource $whatsapp;
     private readonly AnalyticsResource $analytics;
     private readonly GoogleBusinessResource $googleBusiness;
 
@@ -94,6 +96,7 @@ final class Client
         $this->ads = new AdsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
+        $this->whatsapp = new WhatsappResource($this->http);
         $this->analytics = new AnalyticsResource($this->http);
         $this->googleBusiness = new GoogleBusinessResource($this->http);
     }
@@ -188,6 +191,12 @@ final class Client
     public function googleBusiness(): GoogleBusinessResource
     {
         return $this->googleBusiness;
+    }
+
+    /** WhatsApp Business: templates, flows, groups, blocking and commerce. */
+    public function whatsapp(): WhatsappResource
+    {
+        return $this->whatsapp;
     }
 
     public function baseUrl(): string
