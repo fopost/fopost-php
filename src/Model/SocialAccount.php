@@ -22,6 +22,7 @@ final class SocialAccount extends Model
         public readonly ?string $healthStatus,
         public readonly ?DateTimeImmutable $lastHealthCheck,
         public readonly ?string $platformName,
+        public readonly ?bool $reconnectRequired,
     ) {
         parent::__construct($raw);
     }
@@ -43,6 +44,7 @@ final class SocialAccount extends Model
             self::str($data, 'health_status'),
             self::date($data, 'last_health_check'),
             self::str($data, 'platform_name'),
+            self::bool($data, 'reconnect_required'),
         );
     }
 }

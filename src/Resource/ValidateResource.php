@@ -7,6 +7,7 @@ namespace Fopost\Sdk\Resource;
 use Fopost\Sdk\Model\LengthValidation;
 use Fopost\Sdk\Model\MediaValidation;
 use Fopost\Sdk\Model\PostValidation;
+use Fopost\Sdk\Model\SubredditCheck;
 
 /**
  * $client->validate(): check a draft, a text length, or a media URL before publishing.
@@ -42,5 +43,17 @@ final class ValidateResource extends Resource
     public function media(string $url): MediaValidation
     {
         return MediaValidation::fromArray(self::unwrap($this->http->post('/validate/media', ['url' => $url])));
+    }
+
+    /**
+     * Whether a subreddit exists and takes a post from this Reddit account.
+     *
+     * The check runs with the account's own token, so $accountId is required.
+     */
+    public function subreddit(string $accountId, string $name): SubredditCheck
+    {
+        return SubredditCheck::fromArray(self::unwrap(
+            $this->http->get('/validate/subreddit', ['account_id' => $accountId, 'name' => $name]),
+        ));
     }
 }
