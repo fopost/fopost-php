@@ -9,7 +9,10 @@ use DateTimeImmutable;
 /** A workspace the API key can reach. */
 final class Workspace extends Model
 {
-    /** @param array<int, SocialAccount> $accounts */
+    /**
+     * @param array<int, string> $connectRedirectDomains Hostnames a hosted connect session may redirect to.
+     * @param array<int, SocialAccount> $accounts
+     */
     private function __construct(
         array $raw,
         public readonly string $id,
@@ -26,7 +29,9 @@ final class Workspace extends Model
         public readonly ?bool $aiAltTextEnabled,
         public readonly ?string $brandColor,
         public readonly ?string $role,
+        public readonly array $connectRedirectDomains,
         public readonly ?DateTimeImmutable $createdAt,
+        public readonly ?DateTimeImmutable $updatedAt,
         public readonly array $accounts,
     ) {
         parent::__construct($raw);
@@ -52,7 +57,9 @@ final class Workspace extends Model
             self::bool($data, 'ai_alt_text_enabled'),
             self::str($data, 'brand_color'),
             self::str($data, 'role'),
+            array_values(array_map(strval(...), self::seq($data, 'connect_redirect_domains'))),
             self::date($data, 'created_at'),
+            self::date($data, 'updated_at'),
             SocialAccount::listFrom(self::seq($data, 'accounts')),
         );
     }
