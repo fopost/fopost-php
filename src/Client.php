@@ -26,6 +26,7 @@ use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\QueueResource;
 use Fopost\Sdk\Resource\SequencesResource;
 use Fopost\Sdk\Resource\ValidateResource;
+use Fopost\Sdk\Resource\WebhooksResource;
 use Fopost\Sdk\Resource\WhatsappResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
@@ -66,6 +67,7 @@ final class Client
     private readonly BlogsResource $blogs;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
+    private readonly WebhooksResource $webhooks;
     private readonly WhatsappResource $whatsapp;
     private readonly AnalyticsResource $analytics;
     private readonly GoogleBusinessResource $googleBusiness;
@@ -105,6 +107,7 @@ final class Client
         $this->blogs = new BlogsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
+        $this->webhooks = new WebhooksResource($this->http);
         $this->whatsapp = new WhatsappResource($this->http);
         $this->analytics = new AnalyticsResource($this->http);
         $this->googleBusiness = new GoogleBusinessResource($this->http);
@@ -201,6 +204,12 @@ final class Client
     public function validate(): ValidateResource
     {
         return $this->validate;
+    }
+
+    /** The endpoints FoPost sends events to, and their delivery log. */
+    public function webhooks(): WebhooksResource
+    {
+        return $this->webhooks;
     }
 
     public function analytics(): AnalyticsResource
