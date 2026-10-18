@@ -189,4 +189,25 @@ final class MediaTest extends TestCase
 
         $this->assertSame(2, $this->transport->requestCount());
     }
+
+    public function testUploadSendsEveryFileAsMultipart(): void
+    {
+        $this->transport->push(200, ['data' => [
+            ['id' => 'm_1', 'type' => 'image', 'name' => 'a.png', 'url' => 'https://cdn.test/a.png', 'size' => 3],
+        ]]);
+
+        $assets = $this->client()->media()->upload(
+            [['filename' => 'a.png', 'contents' => 'abc', 'mimeType' => 'image/png']],
+            'w_1',
+        );
+
+        $request = $this->transport->last();
+        $this->assertSame('POST', $request['method']);
+        $this->assertSame('https://api.fopost.com/v1/media/upload', $request['url']);
+        $this->assertStringStartsWith('multipart/form-data; boundary=', $request['headers']['Content-Type']);
+        $this->assertStringContainsString('name="workspaceId"' . "\r\n\r\nw_1", (string) $request['body']);
+        $this->assertStringContainsString('name="files"; filename="a.png"', (string) $request['body']);
+        $this->assertStringContainsString("Content-Type: image/png\r\n\r\nabc", (string) $request['body']);
+        $this->assertSame('m_1', $assets[0]->id);
+    }
 }

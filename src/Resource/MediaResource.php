@@ -8,7 +8,7 @@ use Fopost\Sdk\Model\MediaAsset;
 use Fopost\Sdk\Model\PresignedUpload;
 use Fopost\Sdk\Model\UploadLimits;
 
-/** $client->media(): direct uploads to the media library. Needs the `posts` scope. */
+/** $client->media(): uploads to the media library. Needs the `posts` scope. */
 final class MediaResource extends Resource
 {
     /** The largest file the account may upload, and which route carries it. */
@@ -90,5 +90,21 @@ final class MediaResource extends Resource
         $this->http->sendRaw($upload->method, $upload->uploadUrl, $headers, $bytes);
 
         return $this->complete($upload->uploadId);
+    }
+
+    /**
+     * Upload files in one multipart request. With `$workspaceId` each file lands in the
+     * library and comes back with an `id`; without it the files are stored for a post only.
+     *
+     * @param array<int, string|array{filename: string, contents: string, mimeType?: string}> $files
+     *   Paths or in-memory files.
+     * @return array<int, MediaAsset>
+     */
+    public function upload(array $files, ?string $workspaceId = null): array
+    {
+        $fields = $workspaceId !== null ? ['workspaceId' => $workspaceId] : [];
+        $body = $this->http->requestMultipart('POST', '/media/upload', $fields, self::normalizeFiles($files), 'files');
+
+        return MediaAsset::listFrom(self::unwrap($body));
     }
 }
