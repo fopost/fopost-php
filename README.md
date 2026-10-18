@@ -846,6 +846,40 @@ signed-in devices. Those rows are append-only and never expire.
 $audit = $client->activity()->list('w_1', 'security');
 ```
 
+## Blogs, articles and products
+
+Content a connected site already owns: the articles on a WordPress site or a
+Shopify store's blog, and a Shopify store's products. Every id here is the
+platform's own, never a FoPost id. Reads need the `posts` scope; anything that
+changes the site needs `publish` as well.
+
+```php
+$blogs = $client->blogs()->listBlogs($accountId);
+// Shopify reports every blog; WordPress reports one, under the id 'default'.
+
+$articles = $client->blogs()->listArticles($accountId, $blogs[0]->id, status: 'draft');
+$articles[0]->title;
+$articles[0]->status;                   // published, draft, pending, scheduled
+
+$article = $client->blogs()->createArticle(
+    $accountId,
+    $blogs[0]->id,
+    'Spring drop',
+    'The new collection is live.',
+    status: 'draft',
+    tags: ['news'],
+);
+
+// Changes the live article in place: only what you name is touched, and the
+// article is addressed by its own id, so this never leaves a duplicate behind.
+$client->blogs()->updateArticle($accountId, $blogs[0]->id, $article->id, status: 'published');
+
+$client->blogs()->deleteArticle($accountId, $blogs[0]->id, $article->id);
+
+$products = $client->blogs()->listProducts($accountId, status: 'active');
+$client->blogs()->updateProduct($accountId, $products[0]->id, title: 'Mug XL');
+```
+
 ## Errors
 
 Every non-2xx response raises an exception under `Fopost\Sdk\Exception`.

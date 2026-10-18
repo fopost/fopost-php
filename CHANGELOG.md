@@ -2,7 +2,7 @@
 
 All notable changes to `fopost/sdk` are documented here.
 
-## Unreleased
+## 0.3.0 - 2026-10-18
 
 ### Removed
 
@@ -48,6 +48,19 @@ All notable changes to `fopost/sdk` are documented here.
   `multipart/form-data` request; larger files are uploaded direct and attached to the first
   content block. `update()` without `content` appends to the post's existing first block.
 - `HttpClient::requestMultipart()` sends multipart bodies through the same retry loop.
+- Reddit on `AccountsResource`: `listRedditSubreddits()`, `listRedditSubredditRules($accountId,
+  $subreddit)`, `listRedditFlairs($accountId, $subreddit)` and `setRedditDefaultSubreddit()`, with
+  `RedditSubreddit`, `RedditSubredditRules`, `RedditFlairs` and `RedditDefaultSubreddit` models.
+  A flair id is valid only in the subreddit it was listed for. `$client->validate()->subreddit($accountId,
+  $name)` answers whether a subreddit exists and takes a post from that account (`SubredditCheck`), and
+  `$client->inbox()->vote($itemId, $direction)` votes `up`, `down` or `none` where `canVote` is true
+  (`publish` scope).
+- `$client->blogs()` wraps `/accounts/{id}/blogs`: the blogs, articles and products a connected
+  WordPress site or Shopify store already owns (`listBlogs`, `listArticles`, `getArticle`,
+  `createArticle`, `updateArticle`, `deleteArticle`, `listProducts`, `updateProduct`), with
+  `RemoteBlog`, `RemoteArticle` and `RemoteProduct` models. Every id is the platform's own, never a
+  FoPost id; `updateArticle()` edits the live article in place and never leaves a duplicate. Reads
+  need the `posts` scope, anything that changes the site `publish` as well.
 
 ### Changed
 
