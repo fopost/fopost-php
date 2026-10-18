@@ -459,4 +459,47 @@ final class AccountsTest extends TestCase
         $mentions = $this->client()->accounts()->searchLinkedInMentions('a_1', 'devtestco');
         $this->assertStringEndsWith('(urn:li:organization:2414183)', $mentions[0]->annotation);
     }
+
+    public function testValidateRefreshPrimaryAndHistoryReachTheAccount(): void
+    {
+        $this->transport->push(200, [
+            'account_id' => 'a_1',
+            'platform' => 'bluesky',
+            'valid' => true,
+            'health_status' => 'healthy',
+            'username' => 'yourbrand',
+        ]);
+        $this->transport->push(200, ['expires_at' => '2026-04-01T09:00:00Z']);
+        $this->transport->push(200, ['id' => 'a_1', 'is_primary' => true]);
+        $this->transport->push(200, [
+            'account_id' => 'a_1',
+            'platform' => 'bluesky',
+            'username' => 'yourbrand',
+            'history' => [['followers' => 200, 'reach' => 50, 'fetched_at' => '2026-03-01T09:00:00Z']],
+        ]);
+
+        $accounts = $this->client()->accounts();
+        $validation = $accounts->validate('a_1');
+        $expiresAt = $accounts->refreshToken('a_1');
+        $primary = $accounts->togglePrimary('a_1');
+        $history = $accounts->analyticsHistory('a_1', 30);
+
+        $this->assertSame('POST', $this->transport->requests[0]['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/validate', $this->transport->requests[0]['url']);
+        $this->assertTrue($validation->valid);
+        $this->assertSame('healthy', $validation->healthStatus);
+
+        $this->assertSame('POST', $this->transport->requests[1]['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/refresh-token', $this->transport->requests[1]['url']);
+        $this->assertSame('2026-04-01', $expiresAt?->format('Y-m-d'));
+
+        $this->assertSame('POST', $this->transport->requests[2]['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/primary', $this->transport->requests[2]['url']);
+        $this->assertTrue($primary->isPrimary);
+
+        $this->assertSame('GET', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/analytics?limit=30', $this->transport->last()['url']);
+        $this->assertSame(200, $history->history[0]->followers);
+        $this->assertSame(50, $history->history[0]->reach);
+    }
 }
