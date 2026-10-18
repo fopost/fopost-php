@@ -189,4 +189,61 @@ final class MediaTest extends TestCase
 
         $this->assertSame(2, $this->transport->requestCount());
     }
+
+    public function testUploadSendsEveryFileAsMultipart(): void
+    {
+        $this->transport->push(200, ['data' => [
+            ['id' => 'm_1', 'type' => 'image', 'name' => 'a.png', 'url' => 'https://cdn.test/a.png', 'size' => 3],
+        ]]);
+
+        $assets = $this->client()->media()->upload(
+            [['filename' => 'a.png', 'contents' => 'abc', 'mimeType' => 'image/png']],
+            'w_1',
+        );
+
+        $request = $this->transport->last();
+        $this->assertSame('POST', $request['method']);
+        $this->assertSame('https://api.fopost.com/v1/media/upload', $request['url']);
+        $this->assertStringStartsWith('multipart/form-data; boundary=', $request['headers']['Content-Type']);
+        $this->assertStringContainsString('name="workspaceId"' . "\r\n\r\nw_1", (string) $request['body']);
+        $this->assertStringContainsString('name="files"; filename="a.png"', (string) $request['body']);
+        $this->assertStringContainsString("Content-Type: image/png\r\n\r\nabc", (string) $request['body']);
+        $this->assertSame('m_1', $assets[0]->id);
+    }
+
+    public function testListAndDeleteReachTheLibrary(): void
+    {
+        $this->transport->push(200, [
+            'data' => [[
+                'id' => 'm_1',
+                'workspace_id' => 'w_1',
+                'name' => 'logo.png',
+                'url' => 'https://cdn.test/logo.png',
+                'preview_url' => 'https://api.fopost.com/v1/media/m_1/file',
+                'type' => 'image',
+                'mime_type' => 'image/png',
+                'size' => 3,
+                'tags' => ['brand'],
+                'brand_role' => 'logo',
+                'has_person_consent' => false,
+                'created_at' => '2026-03-01T09:00:00Z',
+            ]],
+            'meta' => ['page' => 1, 'per_page' => 20, 'total' => 1, 'total_pages' => 1],
+        ]);
+        $this->transport->push(204);
+
+        $page = $this->client()->media()->list('w_1', type: 'image', shared: false);
+        $this->client()->media()->delete('m_1');
+
+        $this->assertSame(
+            'https://api.fopost.com/v1/media?workspace_id=w_1&page=1&per_page=20&type=image&shared=false',
+            $this->transport->requests[0]['url'],
+        );
+        $this->assertSame(1, $page->meta->total);
+        $this->assertSame('logo', $page->items[0]->brandRole);
+        $this->assertSame(['brand'], $page->items[0]->tags);
+        $this->assertSame('image/png', $page->items[0]->mimeType);
+        $this->assertSame('DELETE', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/media/m_1', $this->transport->last()['url']);
+    }
 }

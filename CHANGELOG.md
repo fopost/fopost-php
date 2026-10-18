@@ -4,8 +4,26 @@ All notable changes to `fopost/sdk` are documented here.
 
 ## Unreleased
 
+### Changed
+
+- **Breaking:** `$client->ads()->uploadConversions()` returns a `ConversionUploadResult`
+  (`id`, `accepted`, `eventCount`, `replayed`) instead of the accepted count, and takes an
+  optional `$idempotencyKey` sent as the `Idempotency-Key` header. Each event also accepts
+  `eventId`, `actionSource`, `sourceUrl`, `externalId`, `clientIpAddress`, `clientUserAgent`,
+  `clickId`, `browserId` and `contentIds`.
+- `HttpClient::request()` takes a fifth `$headers` argument merged over the defaults.
+
 ### Added
 
+- `$client->ads()->sendConversions()` posts to `/ads/conversions/events` with a required
+  `Idempotency-Key`; a replay answers `replayed: true`. `listConversionEvents()` reads the
+  stored batches as `ConversionBatch` rows whose events carry identifiers as hashes only.
+- Pixels: `pixels()`, `createPixel()`, `pixel()`, `updatePixel()`, `sharePixel()`,
+  `pixelStats()` and `eventMatchQuality()`, with `AdPixel`, `AdPixelDetail`, `AdPixelStats`,
+  `AdPixelEventCount`, `EventMatchQuality` and `EventMatchKey`.
+- Custom conversions: `customConversions()`, `createCustomConversion()`, `customConversion()`,
+  `updateCustomConversion()` and `deleteCustomConversion()`, with `CustomConversion` and
+  `CustomConversionRule`.
 - `$client->inbox()->repost()`, `unrepost()`, `bookmark()` and `unbookmark()` for X items,
   mirroring `like()`/`unlike()` (`inbox` + `publish` scopes). `InboxItem` carries `reposted`,
   `bookmarked`, `canRepost` and `canBookmark`.
@@ -17,6 +35,43 @@ All notable changes to `fopost/sdk` are documented here.
 - Every one of these is an X API call metered to the workspace; a spent X balance is a 402
   `platform_balance_spent`. An X account connected before this release must be reconnected for
   repost, bookmark and follow, and answers 409 `reconnect_required` until then.
+
+## 0.4.0 - 2026-10-18
+
+### Added
+
+- `$client->queue()` wraps the posting queue: `listSlots`, `createSlot`, `updateSlot`,
+  `deleteSlot`, `next` and `preview`, with `QueueSlot`, `QueueMove`, `QueueSlotUpdate` and
+  `QueueSlotDeletion`. `posts()->create()` and `update()` take `schedule: 'queue'`.
+- `$client->posts()->unpublish()` takes a published post down everywhere and answers an
+  `UnpublishResult` with one `PlatformRemoval` per network. `validateBulkImport()`,
+  `commitBulkImport()` and `rollbackBulkImport()` wrap the CSV import.
+- `$client->connectSessions()` creates and reads hosted connect links (`ConnectSession`).
+- `$client->webhooks()` manages endpoints (`list`, `create`, `update`, `delete`, `test`) and
+  their delivery log (`listDeliveries`, `getDelivery`, `redeliver`), with `Webhook` and
+  `WebhookDelivery`.
+- `$client->automations()` wraps `/automations`: `list`, `stats`, `get`, `create`, `update`,
+  `delete`, `toggle`, versions (`listVersions`, `getVersion`, `restoreVersion`) and runs
+  (`listRuns`, `getRun`), with `Automation`, `AutomationStep`, `AutomationStats`,
+  `AutomationVersion`, `AutomationNodeRef`, `AutomationRestore`, `AutomationRun`,
+  `AutomationRunLog` and `AutomationToggle`.
+- `$client->workspaces()->create()`, `update()`, `delete()` and `analytics()` (`WorkspaceAnalytics`,
+  `WorkspaceAccountStats`). `Workspace` carries
+  `connectRedirectDomains` and `updatedAt`.
+- `$client->accounts()->validate()` (`AccountValidation`), `refreshToken()`, `togglePrimary()`
+  (`AccountPrimary`) and `analyticsHistory()` (`AccountAnalyticsHistory`, `AccountSnapshot`).
+- `$client->accounts()` X communities: `listCommunities`, `syncCommunities`,
+  `searchCommunities`, `addCommunity` and `removeCommunity` (`XCommunity`, `XCommunityMatch`).
+- `$client->logs()->list()` reads the request log into `RequestLogPage` (`RequestLog`,
+  `RequestLogBucket`).
+- `$client->analytics()` dashboard calls: `overview`, `timeSeries`, `topPosts`, `labels`,
+  `postsTable`, `postingStreak`, `demographics` and `inbox`, with `AnalyticsOverview`,
+  `AnalyticsAccountTotal`, `AnalyticsTimeSeries`, `AnalyticsSeriesPoint`, `TopPost`,
+  `LabelAnalytics`, `PostsTablePage`, `PostsTableRow`, `PostingStreakDay`,
+  `AudienceDemographics`, `DemographicsBucket` and `InboxAnalytics`.
+- `$client->media()->upload()` sends files through the API in one multipart request;
+  `list()` pages through the library and `delete()` removes a file. `MediaAsset` carries every
+  library field (`mimeType`, `tags`, `brandRole`, `hasPersonConsent`, `share`, ...).
 
 ## 0.3.0 - 2026-10-18
 

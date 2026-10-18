@@ -118,13 +118,19 @@ final class HttpClient
      * Send a request, retrying on 429, and return the decoded body.
      *
      * @param array<string, mixed>|null $params
+     * @param array<string, string> $headers extra request headers, such as Idempotency-Key
      */
-    public function request(string $method, string $path, mixed $json = null, ?array $params = null): mixed
-    {
+    public function request(
+        string $method,
+        string $path,
+        mixed $json = null,
+        ?array $params = null,
+        array $headers = [],
+    ): mixed {
         $url = $this->url($path, $params);
         $payload = $json === null ? null : self::encode($json);
 
-        return $this->sendWithRetry($method, $url, $this->headers(), $payload);
+        return $this->sendWithRetry($method, $url, $headers + $this->headers(), $payload);
     }
 
     /**

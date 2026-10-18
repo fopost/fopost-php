@@ -182,4 +182,81 @@ final class PostsTest extends TestCase
         $this->assertSame('d_1', $deliveries[0]->id);
         $this->assertSame('https://x.test/1', $deliveries[0]->externalUrl);
     }
+
+    public function testCreateSendsTheQueueSchedule(): void
+    {
+        $this->transport->push(200, ['data' => ['id' => 'p_1', 'status' => 'scheduled']]);
+
+        $this->client()->posts()->create(workspaceId: 'w_1', content: 'Hi', accounts: ['a_1'], schedule: 'queue');
+
+        $body = $this->transport->lastJson();
+        $this->assertSame('queue', $body['schedule']);
+        $this->assertArrayNotHasKey('schedule_at', $body);
+    }
+
+    public function testUpdateSendsTheQueueSchedule(): void
+    {
+        $this->transport->push(200, ['data' => ['id' => 'p_1', 'status' => 'scheduled']]);
+
+        $this->client()->posts()->update('p_1', schedule: 'queue');
+
+        $this->assertSame('PUT', $this->transport->last()['method']);
+        $this->assertSame(['schedule' => 'queue'], $this->transport->lastJson());
+    }
+
+    public function testUnpublishTakesThePostDown(): void
+    {
+        $this->transport->push(200, [
+            'post_status' => 'unpublished',
+            'deliveries' => [['account_id' => 'a_1', 'platform' => 'bluesky', 'removed' => true]],
+        ]);
+
+        $result = $this->client()->posts()->unpublish('p_1');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/posts/p_1/unpublish', $this->transport->last()['url']);
+        $this->assertSame('unpublished', $result->postStatus);
+        $this->assertTrue($result->deliveries[0]->removed);
+        $this->assertSame('bluesky', $result->deliveries[0]->platform);
+    }
+
+    public function testBulkImportSendsTheCsvAsMultipart(): void
+    {
+        $this->transport->push(200, [
+            'total_rows' => 2,
+            'valid_rows' => 1,
+            'invalid_rows' => 1,
+            'max_rows' => 500,
+            'rows' => [['row' => 2, 'content_preview' => 'Hi', 'errors' => ['unknown account']]],
+        ]);
+        $this->transport->push(200, [
+            'batch_id' => 'b_1',
+            'created' => 1,
+            'held_for_approval' => false,
+            'posts' => [['id' => 'p_1', 'schedule_at' => '2026-03-01T09:00:00Z']],
+        ]);
+        $this->transport->push(200, ['deleted' => 1]);
+
+        $csv = ['filename' => 'posts.csv', 'contents' => "text\nHi\n", 'mimeType' => 'text/csv'];
+        $check = $this->client()->posts()->validateBulkImport('w_1', $csv);
+        $commit = $this->client()->posts()->commitBulkImport('w_1', $csv);
+        $rollback = $this->client()->posts()->rollbackBulkImport('b_1');
+
+        $first = $this->transport->requests[0];
+        $this->assertSame('POST', $first['method']);
+        $this->assertSame('https://api.fopost.com/v1/posts/bulk-import/validate', $first['url']);
+        $this->assertStringStartsWith('multipart/form-data; boundary=', $first['headers']['Content-Type']);
+        $this->assertStringContainsString('name="workspace_id"' . "\r\n\r\nw_1", (string) $first['body']);
+        $this->assertStringContainsString('name="file"; filename="posts.csv"', (string) $first['body']);
+        $this->assertSame(1, $check->invalidRows);
+        $this->assertSame(['unknown account'], $check->rows[0]->errors);
+
+        $this->assertSame('https://api.fopost.com/v1/posts/bulk-import/commit', $this->transport->requests[1]['url']);
+        $this->assertSame('b_1', $commit->batchId);
+        $this->assertSame('2026-03-01', $commit->posts[0]->scheduleAt?->format('Y-m-d'));
+
+        $this->assertSame('DELETE', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/posts/bulk-import/b_1', $this->transport->last()['url']);
+        $this->assertSame(1, $rollback->deleted);
+    }
 }

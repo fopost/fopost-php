@@ -10,7 +10,7 @@ exception per error status. PSR-4 autoload root `Fopost\Sdk\` → `src/`.
 
 - **PHP >= 8.1.** Extensions `ext-curl` and `ext-json` are the only runtime requirements —
   there are no Composer runtime dependencies, and none may be added.
-- Version `0.3.0`, declared in `Fopost\Sdk\Client::VERSION`. `composer.json` carries no
+- Version `0.4.0`, declared in `Fopost\Sdk\Client::VERSION`. `composer.json` carries no
   `version` key (Packagist reads the git tag).
 
 ## Downstream Packages
@@ -54,9 +54,10 @@ src/
     Response.php        status + lowercased headers + raw body, pre-decode
   Resource/
     Resource.php        base: unwrap/compact/asArray/iso helpers
-    PostsResource.php AccountsResource.php AccountGroupsResource.php WorkspacesResource.php
-    LabelsResource.php AiResource.php InboxResource.php AdsResource.php MediaResource.php
-    ValidateResource.php
+    PostsResource.php QueueResource.php AccountsResource.php ConnectSessionsResource.php
+    AccountGroupsResource.php WorkspacesResource.php LabelsResource.php AiResource.php
+    AutomationsResource.php InboxResource.php AdsResource.php MediaResource.php
+    ValidateResource.php WebhooksResource.php AnalyticsResource.php LogsResource.php ...
   Model/
     Model.php           base: reads both wire casings, keeps the untouched payload on ->raw
     Page.php PageMeta.php Post.php SocialAccount.php Workspace.php Label.php ...
@@ -70,6 +71,8 @@ src/
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php LeadFormDetail.php FeedLead.php LeadsFeedPage.php LeadPage.php
     AdAccountTree.php AdCampaign.php AdSet.php NetworkAd.php AdCreative.php BulkAdStatusResult.php
     AdInsightsReport.php InsightsMetrics.php InsightsRow.php ReachEstimate.php
+    AdPixel.php AdPixelDetail.php AdPixelStats.php AdPixelEventCount.php EventMatchQuality.php EventMatchKey.php
+    ConversionUploadResult.php ConversionBatch.php ConversionBatchEvent.php CustomConversion.php CustomConversionRule.php
     PostValidation.php LengthValidation.php MediaValidation.php (+ per-platform rows, ValidationSignal)
   Exception/
     FopostException.php ErrorFactory.php + one subclass per status
@@ -91,10 +94,11 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
 - `PostsResource::iterate()` / `iteratePages()` are generators that page through the list
   endpoint; `Page` is `IteratorAggregate + Countable + ArrayAccess` and read-only.
 
-**Resources wired today:** `posts`, `accounts`, `accountGroups`, `workspaces`, `labels`, `ai`,
-`inbox`, `contacts`, `broadcasts`, `sequences`, `ads`, `media`, `validate`. There is no `communities`, `webhooks`, `analytics`, or
-`automations` resource here — reach those through the escape hatch `Client::request()` until one
-is added.
+**Resources wired today:** `posts`, `queue`, `accounts`, `connectSessions`, `accountGroups`,
+`workspaces`, `labels`, `ai`, `automations`, `inbox`, `contacts`, `broadcasts`, `sequences`, `blog`,
+`knowledge`, `ads`, `blogs`, `media`, `validate`, `webhooks`, `whatsapp`, `analytics`, `googleBusiness`,
+`activity`, `logs`. Anything else goes through the escape hatch `Client::request()` until a
+resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what is still unwrapped.
 
 - `inbox` (scope `inbox`) covers `/inbox`, `/inbox/posts`, `/inbox/conversations`, `unread-count`,
   `accounts`, `platforms`, `read`, `refresh`, `approvals` (+ `approve`/`reject`, integer ids), and
@@ -120,7 +124,10 @@ is added.
   connections (+ Meta authorize), sources, boost, create, refresh, status, delete, audiences,
   targeting search, lead forms and leads, plus the campaign tree (campaigns, ad sets, network ads,
   duplicate, bulk status), creatives, audience detail and users, reach, insights, and the stored leads
-  feed with Page subscriptions. `boost()`, `create()`, `setStatus()`, `delete()`, `bulkSetStatus()` and
+  feed with Page subscriptions, plus pixels (`pixels`, `createPixel`, `pixel`, `updatePixel`, `sharePixel`,
+  `pixelStats`, `eventMatchQuality`), the Conversions API (`uploadConversions`, `sendConversions` with a required
+  `Idempotency-Key`, `listConversionEvents`) and custom conversions. `sendConversionEvents()` is the older
+  LinkedIn conversion-rule send, hence the different name. `boost()`, `create()`, `setStatus()`, `delete()`, `bulkSetStatus()` and
   every campaign, ad set and network ad write also need the `publish` scope, and anything created
   starts paused unless `paused` is `false`. Campaign-tree objects take Meta ids plus `connection_id`
   and are read live. An empty update or duplicate body goes out as `{}` because the API rejects none. Request

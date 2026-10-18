@@ -116,6 +116,36 @@ foreach ($client->posts()->deliveries($draft->id) as $delivery) {
 }
 ```
 
+Drop a post into the next free posting slot instead of picking a time, take a
+published post down everywhere, or create many posts from a CSV:
+
+```php
+$client->posts()->create($workspaceId, 'Queued', accounts: [$accountId], schedule: 'queue');
+$client->posts()->update($post->id, schedule: 'queue');
+
+$result = $client->posts()->unpublish($post->id);
+echo $result->postStatus; // "unpublished"; $result->deliveries[0]->removed per network
+
+$check = $client->posts()->validateBulkImport($workspaceId, 'posts.csv');
+if ($check->invalidRows === 0) {
+    $batch = $client->posts()->commitBulkImport($workspaceId, 'posts.csv');
+    $client->posts()->rollbackBulkImport($batch->batchId); // deletes everything it created
+}
+```
+
+## Queue
+
+The weekly slots a post created with `schedule: 'queue'` lands in. Needs the `posts` scope.
+
+```php
+$slot = $client->queue()->createSlot($workspaceId, weekday: 1, time: '09:00', timezone: 'Europe/Zagreb');
+$client->queue()->updateSlot($slot->id, time: '10:00'); // ->moved lists the posts that shifted
+$client->queue()->listSlots($workspaceId);
+$client->queue()->next($workspaceId);                   // DateTimeImmutable or null
+$client->queue()->preview($workspaceId, count: 5);      // the next five times
+$client->queue()->deleteSlot($slot->id);
+```
+
 ## Accounts
 
 ```php
@@ -201,6 +231,33 @@ $client->accounts()->followXUser('acc_1', '2244994945');
 $client->accounts()->unfollowXUser('acc_1', '2244994945');
 ```
 
+X communities linked to an account:
+
+```php
+$client->accounts()->syncCommunities($accountId);
+$matches = $client->accounts()->searchCommunities($accountId, 'PHP');
+$community = $client->accounts()->addCommunity($accountId, $matches[0]->id);
+$client->accounts()->removeCommunity($accountId, $community->id);
+```
+
+## Connect sessions
+
+Hosted connect links for your own users. Send the user to `url`, then poll until the
+session is `used`. Needs the `accounts` scope.
+
+```php
+$session = $client->connectSessions()->create(
+    externalUserId: 'user-42',
+    platforms: ['linkedin', 'threads'],
+    workspaceId: $workspaceId,
+    redirectUrl: 'https://yourbrand.com/connected',
+);
+echo $session->url;
+
+$session = $client->connectSessions()->get($session->id);
+echo $session->status, ' ', $session->accountId;
+```
+
 ## Google Business Profile
 
 Manage a connected Business Profile location: the profile, attributes, food menus, services, photos, action links, verification and performance.
@@ -241,6 +298,12 @@ $workspaces = $client->workspaces()->list();
 $workspace = $client->workspaces()->get($workspaceId);
 
 echo $workspace->name, ' ', $workspace->timezone, PHP_EOL;
+```
+
+```php
+$workspace = $client->workspaces()->create('Client', type: 'CLIENT', timezone: 'Europe/Zagreb');
+$client->workspaces()->update($workspace->id, requireApproval: true, connectRedirectDomains: ['yourbrand.com']);
+$client->workspaces()->delete($workspace->id); // 409 while accounts are still connected
 ```
 
 ## Labels
@@ -644,6 +707,44 @@ $client->ads()->sendConversionEvents($ruleId, $workspaceId, $connectionId, $even
 $page = $client->ads()->adLibrary($workspaceId, $connectionId, keyword: 'crm', countries: ['US']);
 ```
 
+### Pixels, the Conversions API and custom conversions
+
+Every call needs the `ads` scope. Amounts are minor units; email, phone and externalId are
+hashed before they leave FoPost and stored only as hashes.
+
+```php
+$pixels = $client->ads()->pixels($workspaceId, $connectionId, $adAccountId);           // AdPixel[]
+$pixel = $client->ads()->createPixel($workspaceId, $connectionId, $adAccountId, 'Site'); // ->code is the install script
+$client->ads()->updatePixel($pixel->id, $workspaceId, $connectionId, $adAccountId, dataUseSetting: 'analytics_only');
+$client->ads()->sharePixel($pixel->id, $workspaceId, $connectionId, $adAccountId, $otherAdAccountId);
+$stats = $client->ads()->pixelStats($pixel->id, $workspaceId, $connectionId, $adAccountId);           // last 28 days
+$quality = $client->ads()->eventMatchQuality($pixel->id, $workspaceId, $connectionId, $adAccountId); // score out of 10
+
+$events = [[
+    'eventName' => 'Purchase',
+    'occurredAt' => '2026-10-18T10:04:00Z',
+    'eventId' => 'order_77',            // dedupes a browser and server pair
+    'actionSource' => 'website',
+    'email' => 'buyer@example.test',
+    'valueMinor' => 4999,
+    'currency' => 'USD',
+]];
+// Idempotency-Key required: a repeat with the same key sends nothing and answers replayed = true.
+$result = $client->ads()->sendConversions($workspaceId, $connectionId, $adAccountId, $pixel->id, $events, 'order_77');
+$result->accepted; $result->replayed;
+// The older upload keeps working; the key is optional there.
+$client->ads()->uploadConversions($workspaceId, $connectionId, $adAccountId, $pixel->id, $events);
+$batches = $client->ads()->listConversionEvents($workspaceId, $connectionId, limit: 20); // ConversionBatch[]
+
+$conversion = $client->ads()->createCustomConversion(
+    $workspaceId, $connectionId, $adAccountId, $pixel->id, 'Checkout', 'PURCHASE',
+    ['urlContains' => '/thank-you'], defaultValueMinor: 2500,
+);
+$client->ads()->customConversions($workspaceId, $connectionId, $adAccountId);
+$client->ads()->updateCustomConversion($conversion->id, $workspaceId, $connectionId, $adAccountId, name: 'Checkout 2');
+$client->ads()->deleteCustomConversion($conversion->id, $workspaceId, $connectionId, $adAccountId);
+```
+
 ### Audiences, reach and insights
 
 ```php
@@ -750,6 +851,15 @@ $upload = $client->media()->presign($workspaceId, 'clip.mp4', 'video/mp4', files
 $asset = $client->media()->complete($upload->uploadId);
 ```
 
+Or send the bytes through the API in one multipart request:
+
+```php
+$assets = $client->media()->upload(['logo.png', 'clip.mp4'], $workspaceId);
+
+$page = $client->media()->list($workspaceId, type: 'image', brandRole: 'logo');
+$client->media()->delete($page->items[0]->id);
+```
+
 A file over the limit is a `413` with `error: file_too_large`; it arrives as an `ApiException` whose
 `getBody()['max_file_bytes']` says what would have fit, and `getBody()['upgrade_url']` where to raise it.
 
@@ -840,6 +950,21 @@ hand on the network works the same way:
 
 ```php
 $client->analytics()->timeline('https://x.com/acme/status/1');
+The numbers the dashboard shows:
+
+```php
+$overview = $client->analytics()->overview(days: 30, workspaceId: $workspaceId);
+echo $overview->totalFollowers, ' ', $overview->engagementRate, PHP_EOL;
+
+$series = $client->analytics()->timeSeries(from: '2026-03-01', to: '2026-03-31');
+$top = $client->analytics()->topPosts(limit: 10, sort: 'engagements');
+$labels = $client->analytics()->labels(days: 90);
+$table = $client->analytics()->postsTable(page: 1, perPage: 20);
+$streak = $client->analytics()->postingStreak($workspaceId);
+$audience = $client->analytics()->demographics('followers', accountId: $accountId);
+$inbox = $client->analytics()->inbox(days: 30, tz: 'Europe/Zagreb');
+```
+
 ## Activity
 
 What happened in a workspace, newest first. Needs the `analytics` scope.
@@ -857,6 +982,61 @@ signed-in devices. Those rows are append-only and never expire.
 
 ```php
 $audit = $client->activity()->list('w_1', 'security');
+```
+
+## Logs
+
+The API requests made with your keys, newest first, with error counts per bucket. Needs the
+`workspaces` scope.
+
+```php
+$page = $client->logs()->list($workspaceId, days: 7, status: 'error');
+$page->logs[0]->route;      // "/v1/posts/{id}"
+$page->logs[0]->statusCode; // 422
+$page->nextCursor;          // pass back as $before for the next page
+```
+
+## Webhooks
+
+The endpoints FoPost sends events to, and their delivery log. Verify what arrives with
+`Fopost\Sdk\Webhooks::verify()`. Needs the `webhooks` scope.
+
+```php
+$hook = $client->webhooks()->create($workspaceId, 'https://yourbrand.com/hooks', ['post.published']);
+echo $hook->secret; // returned once
+
+$client->webhooks()->update($hook->id, events: ['post.published', 'post.failed'], active: true);
+$client->webhooks()->test($hook->id);
+
+foreach ($client->webhooks()->listDeliveries($hook->id, status: 'failed') as $delivery) {
+    $client->webhooks()->redeliver($hook->id, $delivery->id);
+}
+$delivery = $client->webhooks()->getDelivery($hook->id, $deliveryId); // ->payload as sent
+$client->webhooks()->delete($hook->id);
+```
+
+## Automations
+
+Triggers and the step chains they run. Needs the `automations` scope.
+
+```php
+$automation = $client->automations()->create(
+    $workspaceId,
+    'Cross-post',
+    'content_created',
+    ['accountIds' => [$accountId]],
+    steps: [['actionType' => 'publish', 'actionConfig' => ['accountIds' => [$otherAccountId]]]],
+);
+$client->automations()->update($automation->id, active: false);
+$client->automations()->toggle($automation->id);
+$client->automations()->stats();
+
+$versions = $client->automations()->listVersions($automation->id);
+$client->automations()->restoreVersion($automation->id, $versions->items[1]->version);
+
+$runs = $client->automations()->listRuns($automation->id);
+$run = $client->automations()->getRun($automation->id, $runs->items[0]->id); // ->logs per step
+$client->automations()->delete($automation->id);
 ```
 
 ## Blogs, articles and products

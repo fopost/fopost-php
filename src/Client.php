@@ -11,8 +11,10 @@ use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AnalyticsResource;
 use Fopost\Sdk\Resource\AiResource;
+use Fopost\Sdk\Resource\AutomationsResource;
 use Fopost\Sdk\Resource\BlogResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
+use Fopost\Sdk\Resource\ConnectSessionsResource;
 use Fopost\Sdk\Resource\ContactsResource;
 use Fopost\Sdk\Resource\GoogleBusinessResource;
 use Fopost\Sdk\Resource\BlogsResource;
@@ -20,10 +22,13 @@ use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\ActivityResource;
 use Fopost\Sdk\Resource\KnowledgeResource;
 use Fopost\Sdk\Resource\LabelsResource;
+use Fopost\Sdk\Resource\LogsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
+use Fopost\Sdk\Resource\QueueResource;
 use Fopost\Sdk\Resource\SequencesResource;
 use Fopost\Sdk\Resource\ValidateResource;
+use Fopost\Sdk\Resource\WebhooksResource;
 use Fopost\Sdk\Resource\WhatsappResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
 use InvalidArgumentException;
@@ -40,17 +45,21 @@ use InvalidArgumentException;
  */
 final class Client
 {
-    public const VERSION = '0.3.0';
+    public const VERSION = '0.4.0';
     public const DEFAULT_BASE_URL = HttpClient::DEFAULT_BASE_URL;
 
     private readonly HttpClient $http;
     private readonly PostsResource $posts;
+    private readonly QueueResource $queue;
+    private readonly ConnectSessionsResource $connectSessions;
     private readonly AccountsResource $accounts;
     private readonly AccountGroupsResource $accountGroups;
     private readonly WorkspacesResource $workspaces;
     private readonly LabelsResource $labels;
     private readonly ActivityResource $activity;
+    private readonly LogsResource $logs;
     private readonly AiResource $ai;
+    private readonly AutomationsResource $automations;
     private readonly InboxResource $inbox;
     private readonly ContactsResource $contacts;
     private readonly BroadcastsResource $broadcasts;
@@ -62,6 +71,7 @@ final class Client
     private readonly BlogsResource $blogs;
     private readonly MediaResource $media;
     private readonly ValidateResource $validate;
+    private readonly WebhooksResource $webhooks;
     private readonly WhatsappResource $whatsapp;
     private readonly AnalyticsResource $analytics;
     private readonly GoogleBusinessResource $googleBusiness;
@@ -83,12 +93,16 @@ final class Client
         $this->http = new HttpClient($key, $baseUrl, $timeout, $maxRetries, $transport);
 
         $this->posts = new PostsResource($this->http);
+        $this->queue = new QueueResource($this->http);
+        $this->connectSessions = new ConnectSessionsResource($this->http);
         $this->accounts = new AccountsResource($this->http);
         $this->accountGroups = new AccountGroupsResource($this->http);
         $this->workspaces = new WorkspacesResource($this->http);
         $this->labels = new LabelsResource($this->http);
         $this->activity = new ActivityResource($this->http);
+        $this->logs = new LogsResource($this->http);
         $this->ai = new AiResource($this->http);
+        $this->automations = new AutomationsResource($this->http);
         $this->inbox = new InboxResource($this->http);
         $this->contacts = new ContactsResource($this->http);
         $this->broadcasts = new BroadcastsResource($this->http);
@@ -99,6 +113,7 @@ final class Client
         $this->blogs = new BlogsResource($this->http);
         $this->media = new MediaResource($this->http);
         $this->validate = new ValidateResource($this->http);
+        $this->webhooks = new WebhooksResource($this->http);
         $this->whatsapp = new WhatsappResource($this->http);
         $this->analytics = new AnalyticsResource($this->http);
         $this->googleBusiness = new GoogleBusinessResource($this->http);
@@ -109,9 +124,21 @@ final class Client
         return $this->posts;
     }
 
+    /** The weekly posting slots a post created with `schedule: 'queue'` lands in. */
+    public function queue(): QueueResource
+    {
+        return $this->queue;
+    }
+
     public function accounts(): AccountsResource
     {
         return $this->accounts;
+    }
+
+    /** Hosted connect links for your own users. */
+    public function connectSessions(): ConnectSessionsResource
+    {
+        return $this->connectSessions;
     }
 
     public function accountGroups(): AccountGroupsResource
@@ -132,6 +159,12 @@ final class Client
     public function ai(): AiResource
     {
         return $this->ai;
+    }
+
+    /** Triggers and the step chains they run. */
+    public function automations(): AutomationsResource
+    {
+        return $this->automations;
     }
 
     public function knowledge(): KnowledgeResource
@@ -180,9 +213,21 @@ final class Client
         return $this->activity;
     }
 
+    /** The API requests made with your keys. */
+    public function logs(): LogsResource
+    {
+        return $this->logs;
+    }
+
     public function validate(): ValidateResource
     {
         return $this->validate;
+    }
+
+    /** The endpoints FoPost sends events to, and their delivery log. */
+    public function webhooks(): WebhooksResource
+    {
+        return $this->webhooks;
     }
 
     public function analytics(): AnalyticsResource
