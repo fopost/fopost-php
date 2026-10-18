@@ -341,4 +341,77 @@ final class InboxTest extends TestCase
         $this->assertSame('https://api.fopost.com/v1/inbox/approvals/42/reject', $this->transport->last()['url']);
         $this->assertSame('rejected', $decision->outcome);
     }
+
+    public function testRepostAndBookmarkReturnTheItem(): void
+    {
+        $acted = self::item([
+            'reposted' => true,
+            'bookmarked' => true,
+            'canRepost' => true,
+            'canBookmark' => true,
+        ]);
+
+        foreach (['repost', 'unrepost', 'bookmark', 'unbookmark'] as $action) {
+            $this->transport->push(200, ['data' => $acted]);
+            $item = $this->client()->inbox()->{$action}('i_1');
+            $this->assertSame('POST', $this->transport->last()['method']);
+            $this->assertSame("https://api.fopost.com/v1/inbox/i_1/{$action}", $this->transport->last()['url']);
+            $this->assertNull($this->transport->last()['body']);
+            $this->assertTrue($item->reposted);
+            $this->assertTrue($item->bookmarked);
+            $this->assertTrue($item->canRepost);
+            $this->assertTrue($item->canBookmark);
+        }
+    }
+
+    public function testXPostLookupAndSearch(): void
+    {
+        $this->transport->push(200, ['data' => [
+            'id' => '1790000000000000001',
+            'text' => 'Launch day',
+            'permalink' => 'https://x.com/yourbrand/status/1790000000000000001',
+            'author_name' => 'Your Brand',
+            'author_handle' => 'yourbrand',
+            'author_followers' => 1200,
+            'conversation_id' => '1790000000000000001',
+            'likes' => 4,
+            'replies' => 1,
+            'reposts' => 2,
+            'quotes' => 0,
+            'platform_created_at' => '2026-10-18T09:00:00Z',
+        ]]);
+        $post = $this->client()->inbox()->getXPost('1790000000000000001', 'a_1');
+
+        $this->assertSame('GET', $this->transport->last()['method']);
+        $this->assertSame(
+            'https://api.fopost.com/v1/x/posts/1790000000000000001?account_id=a_1',
+            $this->transport->last()['url'],
+        );
+        $this->assertSame('yourbrand', $post->authorHandle);
+        $this->assertSame(2, $post->reposts);
+        $this->assertSame('2026-10-18', $post->platformCreatedAt?->format('Y-m-d'));
+
+        $this->transport->push(200, [
+            'data' => [['id' => '1790000000000000002', 'text' => 'Nice launch']],
+            'meta' => ['next_token' => 'b26v89c19zqg8o3fpe'],
+        ]);
+        $page = $this->client()->inbox()->searchXPosts('launch day', 'a_1', ['max_results' => 20]);
+
+        $this->assertSame(
+            'https://api.fopost.com/v1/x/search?q=launch+day&account_id=a_1&max_results=20',
+            $this->transport->last()['url'],
+        );
+        $this->assertCount(1, $page->posts);
+        $this->assertSame('1790000000000000002', $page->posts[0]->id);
+        $this->assertSame('b26v89c19zqg8o3fpe', $page->nextToken);
+
+        $this->transport->push(200, ['data' => [], 'meta' => ['next_token' => null]]);
+        $page = $this->client()->inbox()->searchXPosts('launch day', 'a_1', ['next_token' => $page->nextToken]);
+        $this->assertSame(
+            'https://api.fopost.com/v1/x/search?q=launch+day&account_id=a_1&next_token=b26v89c19zqg8o3fpe',
+            $this->transport->last()['url'],
+        );
+        $this->assertSame([], $page->posts);
+        $this->assertNull($page->nextToken);
+    }
 }
