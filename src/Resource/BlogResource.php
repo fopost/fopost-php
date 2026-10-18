@@ -16,25 +16,29 @@ use Fopost\Sdk\Undefined;
  * $client->blog(): planned keywords and the articles written from them, for
  * a website rather than a social network.
  *
- * Reads, settings and keyword edits need the `posts` scope. Anything that
- * spends credits (planKeywords, requestArticle, regenerateArticle) needs `ai`
- * and answers 402 (PaymentRequiredException) on an empty balance.
- * publishArticle needs `publish`. Every call names the workspace: as a query
- * parameter on GET, PATCH and DELETE routes with an id, in the body elsewhere.
- * Request and response fields are camelCase.
+ * Reads, settings, keyword edits and submitArticle need the `posts` scope.
+ * Anything that spends credits (suggestSeeds, planKeywords, requestArticle,
+ * regenerateArticle) needs `ai` and answers 402 (PaymentRequiredException) on
+ * an empty balance. publishArticle needs `publish`.
+ *
+ * Every call names the workspace: as `workspace_id` on the query string of
+ * reads and per-id routes, as `workspaceId` in the body elsewhere. Request
+ * bodies are camelCase and responses snake_case; models read either.
  */
 final class BlogResource extends Resource
 {
     public function getSettings(string $workspaceId): BlogSettings
     {
         return BlogSettings::fromArray(
-            self::unwrap($this->http->get('/blog/settings', ['workspaceId' => $workspaceId])),
+            self::unwrap($this->http->get('/blog/settings', ['workspace_id' => $workspaceId])),
         );
     }
 
     /**
      * Partial update; only the keys you pass are sent (camelCase, as the API
-     * spells them: siteUrl, topic, cadencePerWeek, targetKind, websiteUrl, ...).
+     * spells them: siteUrl, topic, goal, focusTopics, avoidTopics, cadencePerWeek,
+     * reviewHoldDays, targetKind, websiteUrl, ...). reviewHoldDays is how many days
+     * before its planned date a picked keyword starts being written.
      *
      * Setting websiteUrl for the first time issues a signing secret, returned
      * once on the result's websiteSecret. The product_blog target is admin only.
@@ -55,12 +59,13 @@ final class BlogResource extends Resource
             $this->http->post('/blog/settings/website-secret', ['workspaceId' => $workspaceId]),
         ));
 
-        return (string) ($body['websiteSecret'] ?? '');
+        return (string) ($body['website_secret'] ?? '');
     }
 
     /**
      * Send a signed article.test delivery to the website. A site that refused
-     * it answers 502, which arrives as an ApiException carrying the reason.
+     * it answers 502 website_test_failed, which arrives as an ApiException
+     * carrying the reason and, on ->body, the site's http_status.
      */
     public function testWebsite(string $workspaceId): BlogWebsiteTest
     {
@@ -76,7 +81,7 @@ final class BlogResource extends Resource
     public function listKeywords(string $workspaceId, string|array|null $status = null, ?int $limit = null): array
     {
         $body = $this->http->get('/blog/keywords', self::compact([
-            'workspaceId' => $workspaceId,
+            'workspace_id' => $workspaceId,
             'status' => is_array($status) ? implode(',', $status) : $status,
             'limit' => $limit,
         ]));
@@ -85,8 +90,29 @@ final class BlogResource extends Resource
     }
 
     /**
+     * About 10 search terms from the blog goal and topics. Pass the current
+     * $seeds (up to 20) to refine them and $prompt (up to 500 characters) to
+     * steer. Spends credits.
+     *
+     * @param array<int, string>|null $seeds
+     * @return array<int, string>
+     */
+    public function suggestSeeds(string $workspaceId, ?array $seeds = null, ?string $prompt = null): array
+    {
+        $body = self::asArray(self::unwrap($this->http->post('/blog/keywords/suggest', self::compact([
+            'workspaceId' => $workspaceId,
+            'seeds' => $seeds,
+            'prompt' => $prompt,
+        ]))));
+        $found = $body['seeds'] ?? [];
+
+        return is_array($found) ? array_values(array_map(strval(...), $found)) : [];
+    }
+
+    /**
      * Queue a keyword research run. Spends credits and answers 202; the
-     * keywords arrive as `suggested` rows on listKeywords().
+     * keywords arrive as `suggested` rows on listKeywords() and the calendar is
+     * untouched. Follow the run on the settings' planRun.
      *
      * @param array<int, string>|null $seeds
      */
@@ -108,7 +134,10 @@ final class BlogResource extends Resource
         ]))));
     }
 
-    /** Partial update: pass null for plannedFor to clear it, omit it to leave it alone. */
+    /**
+     * Partial update: pass null for plannedFor to clear it, omit it to leave it
+     * alone. Setting status to `planned` picks the keyword; it takes the next free date.
+     */
     public function updateKeyword(
         string $workspaceId,
         string $keywordId,
@@ -127,13 +156,13 @@ final class BlogResource extends Resource
             'PATCH',
             "/blog/keywords/{$keywordId}",
             $body === [] ? (object) [] : $body,
-            ['workspaceId' => $workspaceId],
+            ['workspace_id' => $workspaceId],
         )));
     }
 
     public function deleteKeyword(string $workspaceId, string $keywordId): void
     {
-        $this->http->request('DELETE', "/blog/keywords/{$keywordId}", null, ['workspaceId' => $workspaceId]);
+        $this->http->request('DELETE', "/blog/keywords/{$keywordId}", null, ['workspace_id' => $workspaceId]);
     }
 
     /**
@@ -143,7 +172,7 @@ final class BlogResource extends Resource
     public function listArticles(string $workspaceId, string|array|null $status = null, ?int $limit = null): array
     {
         $body = $this->http->get('/blog/articles', self::compact([
-            'workspaceId' => $workspaceId,
+            'workspace_id' => $workspaceId,
             'status' => is_array($status) ? implode(',', $status) : $status,
             'limit' => $limit,
         ]));
@@ -175,15 +204,17 @@ final class BlogResource extends Resource
     public function getArticle(string $workspaceId, string $articleId): BlogArticleFull
     {
         return BlogArticleFull::fromArray(self::unwrap(
-            $this->http->get("/blog/articles/{$articleId}", ['workspaceId' => $workspaceId]),
+            $this->http->get("/blog/articles/{$articleId}", ['workspace_id' => $workspaceId]),
         ));
     }
 
     /**
-     * Partial update of a draft or scheduled article; only the keys you pass
-     * are sent (title, slug, excerpt, metaTitle, metaDescription, bodyMarkdown,
-     * tags, publishAt). publishAt puts the draft on the calendar, null returns
-     * it to review. An article that is not editable answers 409 invalid_state.
+     * Partial update of a draft, in-review, scheduled, failed or rejected
+     * article; only the keys you pass are sent (title, slug, excerpt, metaTitle,
+     * metaDescription, bodyMarkdown, tags, publishAt). publishAt approves an
+     * article in review and puts it on the calendar, null returns it to review;
+     * a draft answers 409 until it is submitted. An article that is not editable
+     * answers 409 invalid_state.
      *
      * @param array<string, mixed> $patch
      */
@@ -193,7 +224,7 @@ final class BlogResource extends Resource
             'PATCH',
             "/blog/articles/{$articleId}",
             $patch === [] ? (object) [] : $patch,
-            ['workspaceId' => $workspaceId],
+            ['workspace_id' => $workspaceId],
         )));
     }
 
@@ -203,7 +234,16 @@ final class BlogResource extends Resource
         return $this->articleAction($workspaceId, $articleId, 'regenerate');
     }
 
-    /** Needs the publish scope. Answers 409 no_target when the blog has nowhere to publish. */
+    /** Move a draft, failed or rejected article to `in_review`. Any other state answers 409. */
+    public function submitArticle(string $workspaceId, string $articleId): BlogArticle
+    {
+        return $this->articleAction($workspaceId, $articleId, 'submit');
+    }
+
+    /**
+     * Needs the publish scope and an article in review; a draft answers 409 until
+     * it is submitted. Answers 409 no_target when the blog has nowhere to publish.
+     */
     public function publishArticle(string $workspaceId, string $articleId): BlogArticle
     {
         return $this->articleAction($workspaceId, $articleId, 'publish');
@@ -216,7 +256,7 @@ final class BlogResource extends Resource
 
     public function deleteArticle(string $workspaceId, string $articleId): void
     {
-        $this->http->request('DELETE', "/blog/articles/{$articleId}", null, ['workspaceId' => $workspaceId]);
+        $this->http->request('DELETE', "/blog/articles/{$articleId}", null, ['workspace_id' => $workspaceId]);
     }
 
     private function articleAction(string $workspaceId, string $articleId, string $action): BlogArticle
@@ -225,7 +265,7 @@ final class BlogResource extends Resource
             'POST',
             "/blog/articles/{$articleId}/{$action}",
             null,
-            ['workspaceId' => $workspaceId],
+            ['workspace_id' => $workspaceId],
         )));
     }
 }

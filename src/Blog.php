@@ -17,6 +17,7 @@ final class Blog
         'queued',
         'writing',
         'draft',
+        'in_review',
         'scheduled',
         'publishing',
         'published',
@@ -26,6 +27,13 @@ final class Blog
 
     /** @var array<int, string> */
     public const KEYWORD_STATUSES = ['suggested', 'planned', 'written', 'dismissed'];
+
+    /**
+     * What the blog is for; steers suggested terms and keyword ranking.
+     *
+     * @var array<int, string>
+     */
+    public const GOALS = ['traffic', 'leads', 'sales', 'signups', 'authority'];
 
     /** @var array<int, string> */
     public const TARGET_KINDS = ['product_blog', 'account', 'website'];

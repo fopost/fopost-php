@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Model;
 
-/** What the website answered to a signed test delivery. */
+/** What the website answered a test delivery it accepted. */
 final class BlogWebsiteTest extends Model
 {
     private function __construct(
         array $raw,
-        public readonly bool $ok,
-        /** The HTTP status the site returned, null when it could not be reached. */
-        public readonly ?int $status,
-        public readonly ?string $error,
+        public readonly ?int $httpStatus,
     ) {
         parent::__construct($raw);
     }
@@ -21,11 +18,6 @@ final class BlogWebsiteTest extends Model
     {
         $data = is_array($data) ? $data : [];
 
-        return new self(
-            $data,
-            self::bool($data, 'ok') ?? false,
-            self::int($data, 'status'),
-            self::str($data, 'error'),
-        );
+        return new self($data, self::int($data, 'httpStatus'));
     }
 }

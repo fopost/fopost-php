@@ -24,6 +24,8 @@ final class BlogKeyword extends Model
         public readonly string $status,
         /** YYYY-MM-DD. */
         public readonly ?string $plannedFor,
+        /** Why the keyword serves the blog goal. */
+        public readonly ?string $fitReason,
         public readonly ?DateTimeImmutable $createdAt,
     ) {
         parent::__construct($raw);
@@ -44,6 +46,7 @@ final class BlogKeyword extends Model
             self::str($data, 'source') ?? 'user',
             self::str($data, 'status') ?? 'suggested',
             self::str($data, 'plannedFor'),
+            self::str($data, 'fitReason'),
             self::date($data, 'createdAt'),
         );
     }
