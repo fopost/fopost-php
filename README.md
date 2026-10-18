@@ -631,6 +631,44 @@ $client->ads()->sendConversionEvents($ruleId, $workspaceId, $connectionId, $even
 $page = $client->ads()->adLibrary($workspaceId, $connectionId, keyword: 'crm', countries: ['US']);
 ```
 
+### Pixels, the Conversions API and custom conversions
+
+Every call needs the `ads` scope. Amounts are minor units; email, phone and externalId are
+hashed before they leave FoPost and stored only as hashes.
+
+```php
+$pixels = $client->ads()->pixels($workspaceId, $connectionId, $adAccountId);           // AdPixel[]
+$pixel = $client->ads()->createPixel($workspaceId, $connectionId, $adAccountId, 'Site'); // ->code is the install script
+$client->ads()->updatePixel($pixel->id, $workspaceId, $connectionId, $adAccountId, dataUseSetting: 'analytics_only');
+$client->ads()->sharePixel($pixel->id, $workspaceId, $connectionId, $adAccountId, $otherAdAccountId);
+$stats = $client->ads()->pixelStats($pixel->id, $workspaceId, $connectionId, $adAccountId);           // last 28 days
+$quality = $client->ads()->eventMatchQuality($pixel->id, $workspaceId, $connectionId, $adAccountId); // score out of 10
+
+$events = [[
+    'eventName' => 'Purchase',
+    'occurredAt' => '2026-10-18T10:04:00Z',
+    'eventId' => 'order_77',            // dedupes a browser and server pair
+    'actionSource' => 'website',
+    'email' => 'buyer@example.test',
+    'valueMinor' => 4999,
+    'currency' => 'USD',
+]];
+// Idempotency-Key required: a repeat with the same key sends nothing and answers replayed = true.
+$result = $client->ads()->sendConversions($workspaceId, $connectionId, $adAccountId, $pixel->id, $events, 'order_77');
+$result->accepted; $result->replayed;
+// The older upload keeps working; the key is optional there.
+$client->ads()->uploadConversions($workspaceId, $connectionId, $adAccountId, $pixel->id, $events);
+$batches = $client->ads()->listConversionEvents($workspaceId, $connectionId, limit: 20); // ConversionBatch[]
+
+$conversion = $client->ads()->createCustomConversion(
+    $workspaceId, $connectionId, $adAccountId, $pixel->id, 'Checkout', 'PURCHASE',
+    ['urlContains' => '/thank-you'], defaultValueMinor: 2500,
+);
+$client->ads()->customConversions($workspaceId, $connectionId, $adAccountId);
+$client->ads()->updateCustomConversion($conversion->id, $workspaceId, $connectionId, $adAccountId, name: 'Checkout 2');
+$client->ads()->deleteCustomConversion($conversion->id, $workspaceId, $connectionId, $adAccountId);
+```
+
 ### Audiences, reach and insights
 
 ```php

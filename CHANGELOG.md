@@ -2,6 +2,29 @@
 
 All notable changes to `fopost/sdk` are documented here.
 
+## Unreleased
+
+### Changed
+
+- **Breaking:** `$client->ads()->uploadConversions()` returns a `ConversionUploadResult`
+  (`id`, `accepted`, `eventCount`, `replayed`) instead of the accepted count, and takes an
+  optional `$idempotencyKey` sent as the `Idempotency-Key` header. Each event also accepts
+  `eventId`, `actionSource`, `sourceUrl`, `externalId`, `clientIpAddress`, `clientUserAgent`,
+  `clickId`, `browserId` and `contentIds`.
+- `HttpClient::request()` takes a fifth `$headers` argument merged over the defaults.
+
+### Added
+
+- `$client->ads()->sendConversions()` posts to `/ads/conversions/events` with a required
+  `Idempotency-Key`; a replay answers `replayed: true`. `listConversionEvents()` reads the
+  stored batches as `ConversionBatch` rows whose events carry identifiers as hashes only.
+- Pixels: `pixels()`, `createPixel()`, `pixel()`, `updatePixel()`, `sharePixel()`,
+  `pixelStats()` and `eventMatchQuality()`, with `AdPixel`, `AdPixelDetail`, `AdPixelStats`,
+  `AdPixelEventCount`, `EventMatchQuality` and `EventMatchKey`.
+- Custom conversions: `customConversions()`, `createCustomConversion()`, `customConversion()`,
+  `updateCustomConversion()` and `deleteCustomConversion()`, with `CustomConversion` and
+  `CustomConversionRule`.
+
 ## 0.3.0 - 2026-10-18
 
 ### Removed
