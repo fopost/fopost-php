@@ -22,6 +22,7 @@ use Fopost\Sdk\Resource\InboxResource;
 use Fopost\Sdk\Resource\ActivityResource;
 use Fopost\Sdk\Resource\KnowledgeResource;
 use Fopost\Sdk\Resource\LabelsResource;
+use Fopost\Sdk\Resource\LogsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\QueueResource;
@@ -56,6 +57,7 @@ final class Client
     private readonly WorkspacesResource $workspaces;
     private readonly LabelsResource $labels;
     private readonly ActivityResource $activity;
+    private readonly LogsResource $logs;
     private readonly AiResource $ai;
     private readonly AutomationsResource $automations;
     private readonly InboxResource $inbox;
@@ -98,6 +100,7 @@ final class Client
         $this->workspaces = new WorkspacesResource($this->http);
         $this->labels = new LabelsResource($this->http);
         $this->activity = new ActivityResource($this->http);
+        $this->logs = new LogsResource($this->http);
         $this->ai = new AiResource($this->http);
         $this->automations = new AutomationsResource($this->http);
         $this->inbox = new InboxResource($this->http);
@@ -208,6 +211,12 @@ final class Client
     public function activity(): ActivityResource
     {
         return $this->activity;
+    }
+
+    /** The API requests made with your keys. */
+    public function logs(): LogsResource
+    {
+        return $this->logs;
     }
 
     public function validate(): ValidateResource
