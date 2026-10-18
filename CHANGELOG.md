@@ -29,6 +29,8 @@ All notable changes to `fopost/sdk` are documented here.
   `requestArticle`, `getArticle`, `updateArticle`, `regenerateArticle`, `publishArticle`,
   `rejectArticle`, `deleteArticle`), with `BlogSettings`, `BlogKeyword`, `BlogArticle`,
   `BlogArticleFull` and `BlogArticleImage` models and the `Blog` status constants.
+  The workspace travels as `workspace_id` on the query string, and `testWebsite()` returns the
+  site's answer as `BlogWebsiteTest::$httpStatus`.
 - `Webhooks::verify($rawBody, $headers, $secret)` checks a delivery's signature in constant
   time, preferring `X-FoPost-Signature-256` with a 300 second timestamp tolerance and
   falling back to `X-FoPost-Signature` when no timestamp travels, and returns a

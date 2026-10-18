@@ -19,16 +19,18 @@ use Fopost\Sdk\Undefined;
  * Reads, settings, keyword edits and submitArticle need the `posts` scope.
  * Anything that spends credits (suggestSeeds, planKeywords, requestArticle,
  * regenerateArticle) needs `ai` and answers 402 (PaymentRequiredException) on
- * an empty balance. publishArticle needs `publish`. Every call names the workspace: as a query
- * parameter on GET, PATCH and DELETE routes with an id, in the body elsewhere.
- * Request and response fields are camelCase.
+ * an empty balance. publishArticle needs `publish`.
+ *
+ * Every call names the workspace: as `workspace_id` on the query string of
+ * reads and per-id routes, as `workspaceId` in the body elsewhere. Request
+ * bodies are camelCase and responses snake_case; models read either.
  */
 final class BlogResource extends Resource
 {
     public function getSettings(string $workspaceId): BlogSettings
     {
         return BlogSettings::fromArray(
-            self::unwrap($this->http->get('/blog/settings', ['workspaceId' => $workspaceId])),
+            self::unwrap($this->http->get('/blog/settings', ['workspace_id' => $workspaceId])),
         );
     }
 
@@ -57,12 +59,13 @@ final class BlogResource extends Resource
             $this->http->post('/blog/settings/website-secret', ['workspaceId' => $workspaceId]),
         ));
 
-        return (string) ($body['websiteSecret'] ?? '');
+        return (string) ($body['website_secret'] ?? '');
     }
 
     /**
      * Send a signed article.test delivery to the website. A site that refused
-     * it answers 502, which arrives as an ApiException carrying the reason.
+     * it answers 502 website_test_failed, which arrives as an ApiException
+     * carrying the reason and, on ->body, the site's http_status.
      */
     public function testWebsite(string $workspaceId): BlogWebsiteTest
     {
@@ -78,7 +81,7 @@ final class BlogResource extends Resource
     public function listKeywords(string $workspaceId, string|array|null $status = null, ?int $limit = null): array
     {
         $body = $this->http->get('/blog/keywords', self::compact([
-            'workspaceId' => $workspaceId,
+            'workspace_id' => $workspaceId,
             'status' => is_array($status) ? implode(',', $status) : $status,
             'limit' => $limit,
         ]));
@@ -153,13 +156,13 @@ final class BlogResource extends Resource
             'PATCH',
             "/blog/keywords/{$keywordId}",
             $body === [] ? (object) [] : $body,
-            ['workspaceId' => $workspaceId],
+            ['workspace_id' => $workspaceId],
         )));
     }
 
     public function deleteKeyword(string $workspaceId, string $keywordId): void
     {
-        $this->http->request('DELETE', "/blog/keywords/{$keywordId}", null, ['workspaceId' => $workspaceId]);
+        $this->http->request('DELETE', "/blog/keywords/{$keywordId}", null, ['workspace_id' => $workspaceId]);
     }
 
     /**
@@ -169,7 +172,7 @@ final class BlogResource extends Resource
     public function listArticles(string $workspaceId, string|array|null $status = null, ?int $limit = null): array
     {
         $body = $this->http->get('/blog/articles', self::compact([
-            'workspaceId' => $workspaceId,
+            'workspace_id' => $workspaceId,
             'status' => is_array($status) ? implode(',', $status) : $status,
             'limit' => $limit,
         ]));
@@ -201,7 +204,7 @@ final class BlogResource extends Resource
     public function getArticle(string $workspaceId, string $articleId): BlogArticleFull
     {
         return BlogArticleFull::fromArray(self::unwrap(
-            $this->http->get("/blog/articles/{$articleId}", ['workspaceId' => $workspaceId]),
+            $this->http->get("/blog/articles/{$articleId}", ['workspace_id' => $workspaceId]),
         ));
     }
 
@@ -221,7 +224,7 @@ final class BlogResource extends Resource
             'PATCH',
             "/blog/articles/{$articleId}",
             $patch === [] ? (object) [] : $patch,
-            ['workspaceId' => $workspaceId],
+            ['workspace_id' => $workspaceId],
         )));
     }
 
@@ -253,7 +256,7 @@ final class BlogResource extends Resource
 
     public function deleteArticle(string $workspaceId, string $articleId): void
     {
-        $this->http->request('DELETE', "/blog/articles/{$articleId}", null, ['workspaceId' => $workspaceId]);
+        $this->http->request('DELETE', "/blog/articles/{$articleId}", null, ['workspace_id' => $workspaceId]);
     }
 
     private function articleAction(string $workspaceId, string $articleId, string $action): BlogArticle
@@ -262,7 +265,7 @@ final class BlogResource extends Resource
             'POST',
             "/blog/articles/{$articleId}/{$action}",
             null,
-            ['workspaceId' => $workspaceId],
+            ['workspace_id' => $workspaceId],
         )));
     }
 }

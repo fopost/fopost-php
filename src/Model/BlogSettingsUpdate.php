@@ -22,7 +22,7 @@ final class BlogSettingsUpdate extends Model
 
         return new self(
             $data,
-            BlogSettings::fromArray($data['data'] ?? []),
+            BlogSettings::fromArray($data),
             self::str($data, 'websiteSecret'),
         );
     }
