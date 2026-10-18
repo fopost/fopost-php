@@ -18,6 +18,9 @@ use Fopost\Sdk\Model\AdInsightsReport;
 use Fopost\Sdk\Model\AdLibraryPage;
 use Fopost\Sdk\Model\AdProvider;
 use Fopost\Sdk\Model\AdLabel;
+use Fopost\Sdk\Model\AdPixel;
+use Fopost\Sdk\Model\AdPixelDetail;
+use Fopost\Sdk\Model\AdPixelStats;
 use Fopost\Sdk\Model\AdSet;
 use Fopost\Sdk\Model\AdSource;
 use Fopost\Sdk\Model\AdStudy;
@@ -26,11 +29,15 @@ use Fopost\Sdk\Model\AudiencesResult;
 use Fopost\Sdk\Model\BoostablePost;
 use Fopost\Sdk\Model\BidPricing;
 use Fopost\Sdk\Model\BulkAdStatusResult;
+use Fopost\Sdk\Model\ConversionBatch;
 use Fopost\Sdk\Model\ConversionMetrics;
 use Fopost\Sdk\Model\ConversionRule;
+use Fopost\Sdk\Model\ConversionUploadResult;
+use Fopost\Sdk\Model\CustomConversion;
 use Fopost\Sdk\Model\CatalogBatchResult;
 use Fopost\Sdk\Model\CatalogProductsPage;
 use Fopost\Sdk\Model\CreatedAudience;
+use Fopost\Sdk\Model\EventMatchQuality;
 use Fopost\Sdk\Model\ExternalAd;
 use Fopost\Sdk\Model\HighDemandPeriod;
 use Fopost\Sdk\Model\IosCampaignLimits;
@@ -432,11 +439,13 @@ final class AdsResource extends Resource
     }
 
     /**
-     * Offline conversions. Identifiers are hashed before they leave FoPost.
+     * Conversions API. Identifiers (email, phone, externalId) are hashed before
+     * they leave FoPost. Each event needs eventName and occurredAt (ISO 8601);
+     * eventId, actionSource, sourceUrl, clientIpAddress, clientUserAgent,
+     * clickId, browserId, valueMinor, currency, orderId, contentIds are optional.
      *
      * @param array<int, array<string, mixed>> $events up to 1000 per call
-     *
-     * @return int the number the network accepted
+     * @param string|null $idempotencyKey replays answer `replayed` instead of sending twice
      */
     public function uploadConversions(
         string $workspaceId,
@@ -444,16 +453,243 @@ final class AdsResource extends Resource
         string $adAccountId,
         string $pixelId,
         array $events,
-    ): int {
-        $result = self::unwrap($this->http->post('/ads/conversions', [
+        ?string $idempotencyKey = null,
+    ): ConversionUploadResult {
+        return $this->postConversions(
+            '/ads/conversions',
+            $workspaceId,
+            $connectionId,
+            $adAccountId,
+            $pixelId,
+            $events,
+            $idempotencyKey,
+        );
+    }
+
+    /**
+     * Like uploadConversions(), but the Idempotency-Key is required: a second
+     * call with the same key sends nothing and answers `replayed: true`.
+     *
+     * @param array<int, array<string, mixed>> $events up to 1000 per call
+     */
+    public function sendConversions(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $pixelId,
+        array $events,
+        string $idempotencyKey,
+    ): ConversionUploadResult {
+        return $this->postConversions(
+            '/ads/conversions/events',
+            $workspaceId,
+            $connectionId,
+            $adAccountId,
+            $pixelId,
+            $events,
+            $idempotencyKey,
+        );
+    }
+
+    /**
+     * Stored batches, newest first, with identifiers as hashes only.
+     *
+     * @return array<int, ConversionBatch>
+     */
+    public function listConversionEvents(
+        ?string $workspaceId = null,
+        ?string $connectionId = null,
+        ?int $limit = null,
+    ): array {
+        return ConversionBatch::listFrom(self::unwrap($this->http->get('/ads/conversions/events', [
+            'workspace_id' => $workspaceId,
+            'connection_id' => $connectionId,
+            'limit' => $limit,
+        ])));
+    }
+
+    // ── Pixels ──
+
+    /** @return array<int, AdPixel> */
+    public function pixels(?string $workspaceId, string $connectionId, string $adAccountId): array
+    {
+        return AdPixel::listFrom(self::unwrap($this->http->get(
+            '/ads/pixels',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    public function createPixel(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $name,
+    ): AdPixelDetail {
+        return AdPixelDetail::fromArray(self::unwrap($this->http->post('/ads/pixels', [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+        ])));
+    }
+
+    public function pixel(
+        string $pixelId,
+        ?string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): AdPixelDetail {
+        return AdPixelDetail::fromArray(self::unwrap($this->http->get(
+            "/ads/pixels/{$pixelId}",
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /** @param string|null $dataUseSetting advertising_and_analytics or analytics_only */
+    public function updatePixel(
+        string $pixelId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        ?string $name = null,
+        ?string $dataUseSetting = null,
+    ): AdPixelDetail {
+        return AdPixelDetail::fromArray(self::unwrap($this->http->patch("/ads/pixels/{$pixelId}", self::compact([
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'name' => $name,
+            'dataUseSetting' => $dataUseSetting,
+        ]))));
+    }
+
+    /** Share the pixel with another ad account under the same business portfolio. */
+    public function sharePixel(
+        string $pixelId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $targetAdAccountId,
+    ): void {
+        $this->http->post("/ads/pixels/{$pixelId}/share", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'targetAdAccountId' => $targetAdAccountId,
+        ]);
+    }
+
+    /** Event counts over the last 28 days. */
+    public function pixelStats(
+        string $pixelId,
+        ?string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): AdPixelStats {
+        return AdPixelStats::fromArray(self::unwrap($this->http->get(
+            "/ads/pixels/{$pixelId}/stats",
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /** @return array<int, EventMatchQuality> */
+    public function eventMatchQuality(
+        string $pixelId,
+        ?string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): array {
+        return EventMatchQuality::listFrom(self::unwrap($this->http->get(
+            "/ads/pixels/{$pixelId}/match-quality",
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    // ── Custom conversions ──
+
+    /** @return array<int, CustomConversion> */
+    public function customConversions(?string $workspaceId, string $connectionId, string $adAccountId): array
+    {
+        return CustomConversion::listFrom(self::unwrap($this->http->get(
+            '/ads/custom-conversions',
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    /**
+     * @param string $eventType one of the network's standard types, such as PURCHASE or LEAD
+     * @param array<string, mixed> $rule eventName (PageView when omitted) plus one of urlContains, urlEquals
+     */
+    public function createCustomConversion(
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $pixelId,
+        string $name,
+        string $eventType,
+        array $rule,
+        ?string $description = null,
+        ?int $defaultValueMinor = null,
+    ): CustomConversion {
+        return CustomConversion::fromArray(self::unwrap($this->http->post('/ads/custom-conversions', self::compact([
             'workspaceId' => $workspaceId,
             'connectionId' => $connectionId,
             'adAccountId' => $adAccountId,
             'pixelId' => $pixelId,
-            'events' => $events,
-        ]));
+            'name' => $name,
+            'eventType' => $eventType,
+            'rule' => $rule,
+            'description' => $description,
+            'defaultValueMinor' => $defaultValueMinor,
+        ]))));
+    }
 
-        return is_array($result) && isset($result['accepted']) ? (int) $result['accepted'] : 0;
+    public function customConversion(
+        string $customConversionId,
+        ?string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): CustomConversion {
+        return CustomConversion::fromArray(self::unwrap($this->http->get(
+            "/ads/custom-conversions/{$customConversionId}",
+            self::account($workspaceId, $connectionId, $adAccountId),
+        )));
+    }
+
+    public function updateCustomConversion(
+        string $customConversionId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        ?string $name = null,
+        ?string $description = null,
+        ?int $defaultValueMinor = null,
+    ): CustomConversion {
+        return CustomConversion::fromArray(self::unwrap($this->http->patch(
+            "/ads/custom-conversions/{$customConversionId}",
+            self::compact([
+                'workspaceId' => $workspaceId,
+                'connectionId' => $connectionId,
+                'adAccountId' => $adAccountId,
+                'name' => $name,
+                'description' => $description,
+                'defaultValueMinor' => $defaultValueMinor,
+            ]),
+        )));
+    }
+
+    /** Archives it on the network; the ids travel in the body. */
+    public function deleteCustomConversion(
+        string $customConversionId,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+    ): void {
+        $this->http->delete("/ads/custom-conversions/{$customConversionId}", [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+        ]);
     }
 
     /** One page of an ad's comments; pass `nextCursor` back as $after. */
@@ -1924,6 +2160,30 @@ final class AdsResource extends Resource
     private static function scope(?string $workspaceId, string $connectionId): array
     {
         return ['workspace_id' => $workspaceId, 'connection_id' => $connectionId];
+    }
+
+    /** @param array<int, array<string, mixed>> $events */
+    private function postConversions(
+        string $path,
+        string $workspaceId,
+        string $connectionId,
+        string $adAccountId,
+        string $pixelId,
+        array $events,
+        ?string $idempotencyKey,
+    ): ConversionUploadResult {
+        $body = [
+            'workspaceId' => $workspaceId,
+            'connectionId' => $connectionId,
+            'adAccountId' => $adAccountId,
+            'pixelId' => $pixelId,
+            'events' => array_values($events),
+        ];
+        $headers = $idempotencyKey === null ? [] : ['Idempotency-Key' => $idempotencyKey];
+
+        return ConversionUploadResult::fromArray(self::unwrap(
+            $this->http->request('POST', $path, $body, null, $headers),
+        ));
     }
 
     private function association(
