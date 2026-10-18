@@ -24,6 +24,17 @@ All notable changes to `fopost/sdk` are documented here.
 - Custom conversions: `customConversions()`, `createCustomConversion()`, `customConversion()`,
   `updateCustomConversion()` and `deleteCustomConversion()`, with `CustomConversion` and
   `CustomConversionRule`.
+- `$client->inbox()->repost()`, `unrepost()`, `bookmark()` and `unbookmark()` for X items,
+  mirroring `like()`/`unlike()` (`inbox` + `publish` scopes). `InboxItem` carries `reposted`,
+  `bookmarked`, `canRepost` and `canBookmark`.
+- `$client->accounts()->followXUser($accountId, $userId)` and `unfollowXUser()` (numeric X user
+  id, `inbox` + `publish` scopes), returning an `XFollowResult`.
+- `$client->inbox()->getXPost($postId, $accountId)` and `searchXPosts($q, $accountId, $options)`
+  (`inbox` scope): live X reads through the account's token, as `XPost` and `XSearchPage`
+  (`posts` plus `nextToken` to pass back as `next_token`).
+- Every one of these is an X API call metered to the workspace; a spent X balance is a 402
+  `platform_balance_spent`. An X account connected before this release must be reconnected for
+  repost, bookmark and follow, and answers 409 `reconnect_required` until then.
 
 ## 0.4.0 - 2026-10-18
 

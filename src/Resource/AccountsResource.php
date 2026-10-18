@@ -46,6 +46,7 @@ use DateTimeImmutable;
 use Fopost\Sdk\Model\WebhookSubscription;
 use Fopost\Sdk\Model\XCommunity;
 use Fopost\Sdk\Model\XCommunityMatch;
+use Fopost\Sdk\Model\XFollowResult;
 use Fopost\Sdk\Model\TikTokCreatorInfo;
 use Fopost\Sdk\Model\TikTokMusic;
 use Fopost\Sdk\Model\TikTokPlace;
@@ -244,6 +245,21 @@ final class AccountsResource extends Resource
     {
         return RedditDefaultSubreddit::fromArray(self::unwrap(
             $this->http->put("/accounts/{$accountId}/reddit/default-subreddit", ['subreddit' => $subreddit]),
+        ));
+    }
+
+    /** Follow an X user from this account; $userId is the numeric X user id. Needs the `publish` scope. */
+    public function followXUser(string $accountId, string $userId): XFollowResult
+    {
+        return XFollowResult::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/x/follow", ['user_id' => $userId]),
+        ));
+    }
+
+    public function unfollowXUser(string $accountId, string $userId): XFollowResult
+    {
+        return XFollowResult::fromArray(self::unwrap(
+            $this->http->post("/accounts/{$accountId}/x/unfollow", ['user_id' => $userId]),
         ));
     }
 

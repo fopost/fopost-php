@@ -460,6 +460,27 @@ final class AccountsTest extends TestCase
         $this->assertStringEndsWith('(urn:li:organization:2414183)', $mentions[0]->annotation);
     }
 
+    public function testXFollowAndUnfollowSendTheUserId(): void
+    {
+        $followed = ['account_id' => 'a_1', 'user_id' => '2244994945'];
+        $this->transport->push(200, ['data' => $followed + ['following' => true]]);
+        $result = $this->client()->accounts()->followXUser('a_1', '2244994945');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/x/follow', $this->transport->last()['url']);
+        $this->assertSame(['user_id' => '2244994945'], $this->transport->lastJson());
+        $this->assertSame('a_1', $result->accountId);
+        $this->assertSame('2244994945', $result->userId);
+        $this->assertTrue($result->following);
+
+        $this->transport->push(200, ['data' => $followed + ['following' => false]]);
+        $result = $this->client()->accounts()->unfollowXUser('a_1', '2244994945');
+
+        $this->assertSame('https://api.fopost.com/v1/accounts/a_1/x/unfollow', $this->transport->last()['url']);
+        $this->assertSame(['user_id' => '2244994945'], $this->transport->lastJson());
+        $this->assertFalse($result->following);
+    }
+
     public function testValidateRefreshPrimaryAndHistoryReachTheAccount(): void
     {
         $this->transport->push(200, [
