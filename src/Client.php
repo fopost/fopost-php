@@ -13,6 +13,7 @@ use Fopost\Sdk\Resource\AnalyticsResource;
 use Fopost\Sdk\Resource\AiResource;
 use Fopost\Sdk\Resource\BlogResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
+use Fopost\Sdk\Resource\ConnectSessionsResource;
 use Fopost\Sdk\Resource\ContactsResource;
 use Fopost\Sdk\Resource\GoogleBusinessResource;
 use Fopost\Sdk\Resource\BlogsResource;
@@ -22,6 +23,7 @@ use Fopost\Sdk\Resource\KnowledgeResource;
 use Fopost\Sdk\Resource\LabelsResource;
 use Fopost\Sdk\Resource\MediaResource;
 use Fopost\Sdk\Resource\PostsResource;
+use Fopost\Sdk\Resource\QueueResource;
 use Fopost\Sdk\Resource\SequencesResource;
 use Fopost\Sdk\Resource\ValidateResource;
 use Fopost\Sdk\Resource\WhatsappResource;
@@ -45,6 +47,8 @@ final class Client
 
     private readonly HttpClient $http;
     private readonly PostsResource $posts;
+    private readonly QueueResource $queue;
+    private readonly ConnectSessionsResource $connectSessions;
     private readonly AccountsResource $accounts;
     private readonly AccountGroupsResource $accountGroups;
     private readonly WorkspacesResource $workspaces;
@@ -83,6 +87,8 @@ final class Client
         $this->http = new HttpClient($key, $baseUrl, $timeout, $maxRetries, $transport);
 
         $this->posts = new PostsResource($this->http);
+        $this->queue = new QueueResource($this->http);
+        $this->connectSessions = new ConnectSessionsResource($this->http);
         $this->accounts = new AccountsResource($this->http);
         $this->accountGroups = new AccountGroupsResource($this->http);
         $this->workspaces = new WorkspacesResource($this->http);
@@ -109,9 +115,21 @@ final class Client
         return $this->posts;
     }
 
+    /** The weekly posting slots a post created with `schedule: 'queue'` lands in. */
+    public function queue(): QueueResource
+    {
+        return $this->queue;
+    }
+
     public function accounts(): AccountsResource
     {
         return $this->accounts;
+    }
+
+    /** Hosted connect links for your own users. */
+    public function connectSessions(): ConnectSessionsResource
+    {
+        return $this->connectSessions;
     }
 
     public function accountGroups(): AccountGroupsResource
