@@ -17,6 +17,8 @@ use Fopost\Sdk\Model\InboxReplyResult;
 use Fopost\Sdk\Model\InboxStartConversationResult;
 use Fopost\Sdk\Model\InboxThread;
 use Fopost\Sdk\Model\Page;
+use Fopost\Sdk\Model\XPost;
+use Fopost\Sdk\Model\XSearchPage;
 
 /**
  * $client->inbox(): comments, mentions, reviews and direct messages on connected accounts.
@@ -248,6 +250,28 @@ final class InboxResource extends Resource
         return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unlike")));
     }
 
+    /** Repost the item on X, where canRepost is true. Needs the `publish` scope. */
+    public function repost(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/repost")));
+    }
+
+    public function unrepost(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unrepost")));
+    }
+
+    /** Bookmark the item on X, where canBookmark is true. Needs the `publish` scope. */
+    public function bookmark(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/bookmark")));
+    }
+
+    public function unbookmark(string $itemId): InboxItem
+    {
+        return InboxItem::fromArray(self::unwrap($this->http->post("/inbox/{$itemId}/unbookmark")));
+    }
+
     /**
      * Vote up or down where the network ranks by votes (Reddit), where canVote is true.
      *
@@ -363,6 +387,26 @@ final class InboxResource extends Resource
     {
         return InboxApprovalDecision::fromArray(
             self::unwrap($this->http->post("/inbox/approvals/{$approvalId}/reject")),
+        );
+    }
+
+    /** One X post by id, read with the given X account's token; 404 when X has no such post. */
+    public function getXPost(string $postId, string $accountId): XPost
+    {
+        return XPost::fromArray(self::unwrap($this->http->get("/x/posts/{$postId}", ['account_id' => $accountId])));
+    }
+
+    /**
+     * Recent X posts matching $q (1..512 characters), read with the given X account's token.
+     *
+     * $options: `max_results` (10..100) and `next_token` from the previous page.
+     *
+     * @param array<string, mixed> $options
+     */
+    public function searchXPosts(string $q, string $accountId, array $options = []): XSearchPage
+    {
+        return XSearchPage::fromArray(
+            $this->http->get('/x/search', ['q' => $q, 'account_id' => $accountId] + $options),
         );
     }
 }
