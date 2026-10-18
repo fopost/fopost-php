@@ -11,6 +11,7 @@ use Fopost\Sdk\Resource\AccountsResource;
 use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AnalyticsResource;
 use Fopost\Sdk\Resource\AiResource;
+use Fopost\Sdk\Resource\AutomationsResource;
 use Fopost\Sdk\Resource\BlogResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ConnectSessionsResource;
@@ -56,6 +57,7 @@ final class Client
     private readonly LabelsResource $labels;
     private readonly ActivityResource $activity;
     private readonly AiResource $ai;
+    private readonly AutomationsResource $automations;
     private readonly InboxResource $inbox;
     private readonly ContactsResource $contacts;
     private readonly BroadcastsResource $broadcasts;
@@ -97,6 +99,7 @@ final class Client
         $this->labels = new LabelsResource($this->http);
         $this->activity = new ActivityResource($this->http);
         $this->ai = new AiResource($this->http);
+        $this->automations = new AutomationsResource($this->http);
         $this->inbox = new InboxResource($this->http);
         $this->contacts = new ContactsResource($this->http);
         $this->broadcasts = new BroadcastsResource($this->http);
@@ -153,6 +156,12 @@ final class Client
     public function ai(): AiResource
     {
         return $this->ai;
+    }
+
+    /** Triggers and the step chains they run. */
+    public function automations(): AutomationsResource
+    {
+        return $this->automations;
     }
 
     public function knowledge(): KnowledgeResource
