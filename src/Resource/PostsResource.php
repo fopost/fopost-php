@@ -12,8 +12,12 @@ use Fopost\Sdk\Model\Delivery;
 use Fopost\Sdk\Model\MediaAsset;
 use Fopost\Sdk\Model\Page;
 use Fopost\Sdk\Model\PageMeta;
+use Fopost\Sdk\Model\BulkImportCommit;
+use Fopost\Sdk\Model\BulkImportRollback;
+use Fopost\Sdk\Model\BulkImportValidation;
 use Fopost\Sdk\Model\Post;
 use Fopost\Sdk\Model\SocialAccount;
+use Fopost\Sdk\Model\UnpublishResult;
 use Fopost\Sdk\Undefined;
 use Generator;
 use InvalidArgumentException;
@@ -115,6 +119,8 @@ final class PostsResource extends Resource
      * $status is draft or scheduled; a scheduled post needs $scheduleAt. To
      * send a post out now, create it and call publish(). $accountGroupId adds
      * that group's accounts to $accounts, so $accounts may be left empty.
+     * $schedule of 'queue' drops the post into the next free posting slot
+     * instead of a time you pick.
      *
      * @param string|array<int, mixed>|ContentBlock $content
      * @param array<int, string|array<string, mixed>|SocialAccount> $accounts
@@ -138,6 +144,7 @@ final class PostsResource extends Resource
         array $extra = [],
         ?string $accountGroupId = null,
         ?array $files = null,
+        ?string $schedule = null,
     ): Post {
         $body = [
             'workspace_id' => $workspaceId,
@@ -149,6 +156,7 @@ final class PostsResource extends Resource
         $optional = self::compact([
             'account_group_id' => $accountGroupId,
             'schedule_at' => self::iso($scheduleAt),
+            'schedule' => $schedule,
             'labels' => $labels !== null ? array_values($labels) : null,
             'title' => $title,
             'summary' => $summary,
@@ -193,6 +201,7 @@ final class PostsResource extends Resource
         array|Undefined $settings = Undefined::Value,
         array $extra = [],
         ?array $files = null,
+        string|Undefined $schedule = Undefined::Value,
     ): Post {
         $body = [];
         if (!Undefined::is($content)) {
@@ -209,6 +218,9 @@ final class PostsResource extends Resource
         if (!Undefined::is($scheduleAt)) {
             /** @var string|DateTimeInterface|null $scheduleAt */
             $body['schedule_at'] = self::iso($scheduleAt);
+        }
+        if (!Undefined::is($schedule)) {
+            $body['schedule'] = $schedule;
         }
         if (!Undefined::is($labels)) {
             /** @var array<int, string> $labels */
@@ -312,6 +324,59 @@ final class PostsResource extends Resource
     }
 
     /**
+     * Take a published post down on every network it is live on.
+     *
+     * A network that cannot delete a live post answers 409, and `removed` is
+     * false for one that refused.
+     */
+    public function unpublish(string $postId): UnpublishResult
+    {
+        return UnpublishResult::fromArray(self::unwrap($this->http->post("/posts/{$postId}/unpublish")));
+    }
+
+    /**
+     * Check a CSV of posts row by row without creating anything.
+     *
+     * @param string|array{filename: string, contents: string, mimeType?: string} $file A path or an in-memory file.
+     */
+    public function validateBulkImport(string $workspaceId, string|array $file): BulkImportValidation
+    {
+        $body = $this->http->requestMultipart(
+            'POST',
+            '/posts/bulk-import/validate',
+            ['workspace_id' => $workspaceId],
+            self::normalizeFiles([$file]),
+            'file',
+        );
+
+        return BulkImportValidation::fromArray(self::unwrap($body));
+    }
+
+    /**
+     * Create every valid row of the CSV as a post. Needs the `publish` scope as well.
+     *
+     * @param string|array{filename: string, contents: string, mimeType?: string} $file A path or an in-memory file.
+     */
+    public function commitBulkImport(string $workspaceId, string|array $file): BulkImportCommit
+    {
+        $body = $this->http->requestMultipart(
+            'POST',
+            '/posts/bulk-import/commit',
+            ['workspace_id' => $workspaceId],
+            self::normalizeFiles([$file]),
+            'file',
+        );
+
+        return BulkImportCommit::fromArray(self::unwrap($body));
+    }
+
+    /** Delete every post a bulk import created. */
+    public function rollbackBulkImport(string $batchId): BulkImportRollback
+    {
+        return BulkImportRollback::fromArray(self::unwrap($this->http->delete("/posts/bulk-import/{$batchId}")));
+    }
+
+    /**
      * Accept a bare string, one block, or a sequence of blocks.
      *
      * @param string|array<int|string, mixed>|ContentBlock $content
@@ -344,45 +409,6 @@ final class PostsResource extends Resource
                     'fopost: a content block must be a string, an array, or a ContentBlock',
                 );
             }
-        }
-
-        return $out;
-    }
-
-    /**
-     * A path becomes {filename, contents, mimeType}; an array is checked for the same keys.
-     *
-     * @param array<int, string|array<string, mixed>> $files
-     * @return array<int, array{filename: string, contents: string, mimeType: string}>
-     */
-    private static function normalizeFiles(array $files): array
-    {
-        $out = [];
-        foreach ($files as $file) {
-            if (is_string($file)) {
-                $contents = is_file($file) ? file_get_contents($file) : false;
-                if ($contents === false) {
-                    throw new InvalidArgumentException("fopost: cannot read file {$file}");
-                }
-                $mime = function_exists('mime_content_type') ? mime_content_type($file) : false;
-                $out[] = [
-                    'filename' => basename($file),
-                    'contents' => $contents,
-                    'mimeType' => is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream',
-                ];
-                continue;
-            }
-            $filename = $file['filename'] ?? null;
-            $contents = $file['contents'] ?? null;
-            if (!is_string($filename) || $filename === '' || !is_string($contents)) {
-                throw new InvalidArgumentException('fopost: a file needs a filename and its contents');
-            }
-            $mime = $file['mimeType'] ?? null;
-            $out[] = [
-                'filename' => $filename,
-                'contents' => $contents,
-                'mimeType' => is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream',
-            ];
         }
 
         return $out;
