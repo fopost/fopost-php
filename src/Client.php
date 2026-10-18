@@ -45,7 +45,7 @@ use InvalidArgumentException;
  */
 final class Client
 {
-    public const VERSION = '0.3.0';
+    public const VERSION = '0.4.0';
     public const DEFAULT_BASE_URL = HttpClient::DEFAULT_BASE_URL;
 
     private readonly HttpClient $http;

@@ -2,6 +2,38 @@
 
 All notable changes to `fopost/sdk` are documented here.
 
+## 0.4.0 - 2026-10-18
+
+### Added
+
+- `$client->queue()` wraps the posting queue: `listSlots`, `createSlot`, `updateSlot`,
+  `deleteSlot`, `next` and `preview`, with `QueueSlot`, `QueueMove`, `QueueSlotUpdate` and
+  `QueueSlotDeletion`. `posts()->create()` and `update()` take `schedule: 'queue'`.
+- `$client->posts()->unpublish()` takes a published post down everywhere and answers an
+  `UnpublishResult` with one `PlatformRemoval` per network. `validateBulkImport()`,
+  `commitBulkImport()` and `rollbackBulkImport()` wrap the CSV import.
+- `$client->connectSessions()` creates and reads hosted connect links (`ConnectSession`).
+- `$client->webhooks()` manages endpoints (`list`, `create`, `update`, `delete`, `test`) and
+  their delivery log (`listDeliveries`, `getDelivery`, `redeliver`), with `Webhook` and
+  `WebhookDelivery`.
+- `$client->automations()` wraps `/automations`: `list`, `stats`, `get`, `create`, `update`,
+  `delete`, `toggle`, versions (`listVersions`, `getVersion`, `restoreVersion`) and runs
+  (`listRuns`, `getRun`), with `Automation`, `AutomationStep`, `AutomationStats`,
+  `AutomationVersion`, `AutomationNodeRef`, `AutomationRestore`, `AutomationRun`,
+  `AutomationRunLog` and `AutomationToggle`.
+- `$client->workspaces()->create()`, `update()` and `delete()`. `Workspace` carries
+  `connectRedirectDomains` and `updatedAt`.
+- `$client->accounts()` X communities: `listCommunities`, `syncCommunities`,
+  `searchCommunities`, `addCommunity` and `removeCommunity` (`XCommunity`, `XCommunityMatch`).
+- `$client->logs()->list()` reads the request log into `RequestLogPage` (`RequestLog`,
+  `RequestLogBucket`).
+- `$client->analytics()` dashboard calls: `overview`, `timeSeries`, `topPosts`, `labels`,
+  `postsTable`, `postingStreak`, `demographics` and `inbox`, with `AnalyticsOverview`,
+  `AnalyticsAccountTotal`, `AnalyticsTimeSeries`, `AnalyticsSeriesPoint`, `TopPost`,
+  `LabelAnalytics`, `PostsTablePage`, `PostsTableRow`, `PostingStreakDay`,
+  `AudienceDemographics`, `DemographicsBucket` and `InboxAnalytics`.
+- `$client->media()->upload()` sends files through the API in one multipart request.
+
 ## 0.3.0 - 2026-10-18
 
 ### Removed
