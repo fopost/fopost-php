@@ -100,7 +100,10 @@ final class WebhooksResourceTest extends TestCase
         $this->assertSame(500, $list[0]->responseStatus);
         $this->assertNull($list[0]->payload);
 
-        $this->assertSame('https://api.fopost.com/v1/webhooks/wh_1/deliveries/d_1', $this->transport->requests[1]['url']);
+        $this->assertSame(
+            'https://api.fopost.com/v1/webhooks/wh_1/deliveries/d_1',
+            $this->transport->requests[1]['url'],
+        );
         $this->assertSame(['event' => 'post.published'], $one->payload);
         $this->assertSame('2026-03-01T09:10:00+00:00', $one->nextRetryAt?->format(DATE_ATOM));
 
