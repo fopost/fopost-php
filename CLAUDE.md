@@ -70,6 +70,8 @@ src/
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php LeadFormDetail.php FeedLead.php LeadsFeedPage.php LeadPage.php
     AdAccountTree.php AdCampaign.php AdSet.php NetworkAd.php AdCreative.php BulkAdStatusResult.php
     AdInsightsReport.php InsightsMetrics.php InsightsRow.php ReachEstimate.php
+    AdPixel.php AdPixelDetail.php AdPixelStats.php AdPixelEventCount.php EventMatchQuality.php EventMatchKey.php
+    ConversionUploadResult.php ConversionBatch.php ConversionBatchEvent.php CustomConversion.php CustomConversionRule.php
     PostValidation.php LengthValidation.php MediaValidation.php (+ per-platform rows, ValidationSignal)
   Exception/
     FopostException.php ErrorFactory.php + one subclass per status
@@ -119,7 +121,10 @@ resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what
   connections (+ Meta authorize), sources, boost, create, refresh, status, delete, audiences,
   targeting search, lead forms and leads, plus the campaign tree (campaigns, ad sets, network ads,
   duplicate, bulk status), creatives, audience detail and users, reach, insights, and the stored leads
-  feed with Page subscriptions. `boost()`, `create()`, `setStatus()`, `delete()`, `bulkSetStatus()` and
+  feed with Page subscriptions, plus pixels (`pixels`, `createPixel`, `pixel`, `updatePixel`, `sharePixel`,
+  `pixelStats`, `eventMatchQuality`), the Conversions API (`uploadConversions`, `sendConversions` with a required
+  `Idempotency-Key`, `listConversionEvents`) and custom conversions. `sendConversionEvents()` is the older
+  LinkedIn conversion-rule send, hence the different name. `boost()`, `create()`, `setStatus()`, `delete()`, `bulkSetStatus()` and
   every campaign, ad set and network ad write also need the `publish` scope, and anything created
   starts paused unless `paused` is `false`. Campaign-tree objects take Meta ids plus `connection_id`
   and are read live. An empty update or duplicate body goes out as `{}` because the API rejects none. Request

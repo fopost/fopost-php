@@ -61,14 +61,18 @@ final class AdsTikTokTest extends TestCase
 
     public function testConversionsReportWhatTheNetworkAccepted(): void
     {
-        $this->transport->push(202, ['data' => ['accepted' => 2]]);
+        $this->transport->push(202, [
+            'data' => ['id' => 'cb_1', 'accepted' => 2, 'eventCount' => 2, 'replayed' => false],
+        ]);
 
-        $accepted = $this->client()->ads()->uploadConversions('w_1', 'conn_1', '7011', 'px_1', [
+        $result = $this->client()->ads()->uploadConversions('w_1', 'conn_1', '7011', 'px_1', [
             ['eventName' => 'CompletePayment', 'occurredAt' => '2026-09-18T10:04:00Z'],
             ['eventName' => 'CompletePayment', 'occurredAt' => '2026-09-18T11:04:00Z'],
         ]);
 
-        $this->assertSame(2, $accepted);
+        $this->assertSame(2, $result->accepted);
+        $this->assertFalse($result->replayed);
+        $this->assertArrayNotHasKey('Idempotency-Key', $this->transport->last()['headers']);
         $this->assertSame('https://api.fopost.com/v1/ads/conversions', $this->transport->last()['url']);
         $this->assertSame('px_1', $this->transport->lastJson()['pixelId']);
     }
