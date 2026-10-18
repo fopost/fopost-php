@@ -804,6 +804,9 @@ Or send the bytes through the API in one multipart request:
 
 ```php
 $assets = $client->media()->upload(['logo.png', 'clip.mp4'], $workspaceId);
+
+$page = $client->media()->list($workspaceId, type: 'image', brandRole: 'logo');
+$client->media()->delete($page->items[0]->id);
 ```
 
 A file over the limit is a `413` with `error: file_too_large`; it arrives as an `ApiException` whose

@@ -32,7 +32,9 @@ All notable changes to `fopost/sdk` are documented here.
   `AnalyticsAccountTotal`, `AnalyticsTimeSeries`, `AnalyticsSeriesPoint`, `TopPost`,
   `LabelAnalytics`, `PostsTablePage`, `PostsTableRow`, `PostingStreakDay`,
   `AudienceDemographics`, `DemographicsBucket` and `InboxAnalytics`.
-- `$client->media()->upload()` sends files through the API in one multipart request.
+- `$client->media()->upload()` sends files through the API in one multipart request;
+  `list()` pages through the library and `delete()` removes a file. `MediaAsset` carries every
+  library field (`mimeType`, `tags`, `brandRole`, `hasPersonConsent`, `share`, ...).
 
 ## 0.3.0 - 2026-10-18
 
