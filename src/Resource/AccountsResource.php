@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Resource;
 
+use Fopost\Sdk\Model\AccountAnalyticsHistory;
 use Fopost\Sdk\Model\AccountMove;
+use Fopost\Sdk\Model\AccountPrimary;
 use Fopost\Sdk\Model\AccountPlatformMetrics;
 use Fopost\Sdk\Model\AccountRename;
+use Fopost\Sdk\Model\AccountValidation;
 use Fopost\Sdk\Model\DiscordChannel;
 use Fopost\Sdk\Model\DiscordIdentity;
 use Fopost\Sdk\Model\DiscordMember;
@@ -39,7 +42,10 @@ use Fopost\Sdk\Model\TelegramBotCommand;
 use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
+use DateTimeImmutable;
 use Fopost\Sdk\Model\WebhookSubscription;
+use Fopost\Sdk\Model\XCommunity;
+use Fopost\Sdk\Model\XCommunityMatch;
 use Fopost\Sdk\Model\TikTokCreatorInfo;
 use Fopost\Sdk\Model\TikTokMusic;
 use Fopost\Sdk\Model\TikTokPlace;
@@ -105,6 +111,35 @@ final class AccountsResource extends Resource
         return AccountPlatformMetrics::fromArray(
             self::unwrap($this->http->get("/accounts/{$accountId}/insights", ['raw' => 'true'])),
         );
+    }
+
+    /** Check the stored credentials against the network now. */
+    public function validate(string $accountId): AccountValidation
+    {
+        return AccountValidation::fromArray(self::unwrap($this->http->post("/accounts/{$accountId}/validate")));
+    }
+
+    /** Refresh the access token now; answers when the new one expires, or null when it does not. */
+    public function refreshToken(string $accountId): ?DateTimeImmutable
+    {
+        $body = self::asArray(self::unwrap($this->http->post("/accounts/{$accountId}/refresh-token")));
+        $expiresAt = $body['expires_at'] ?? null;
+
+        return is_string($expiresAt) && $expiresAt !== '' ? new DateTimeImmutable($expiresAt) : null;
+    }
+
+    /** Make the account the workspace's primary one, or step it down when it already is. */
+    public function togglePrimary(string $accountId): AccountPrimary
+    {
+        return AccountPrimary::fromArray(self::unwrap($this->http->post("/accounts/{$accountId}/primary")));
+    }
+
+    /** The collected profile readings, newest first; `$limit` caps how many. */
+    public function analyticsHistory(string $accountId, ?int $limit = null): AccountAnalyticsHistory
+    {
+        $body = $this->http->get("/accounts/{$accountId}/analytics", self::compact(['limit' => $limit]));
+
+        return AccountAnalyticsHistory::fromArray(self::unwrap($body));
     }
 
     /** Rename the account; null or an empty string restores the platform name. */
@@ -886,5 +921,55 @@ final class AccountsResource extends Resource
         return LinkedInMention::listFrom(
             self::unwrap($this->http->get("/accounts/{$accountId}/linkedin/mentions", ['q' => $q])),
         );
+    }
+
+    // ── X communities ──
+
+    /**
+     * The X communities linked to the account.
+     *
+     * @return array<int, XCommunity>
+     */
+    public function listCommunities(string $accountId): array
+    {
+        return XCommunity::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/communities")));
+    }
+
+    /**
+     * Pull the account's community memberships from X and link them.
+     *
+     * @return array<int, XCommunity>
+     */
+    public function syncCommunities(string $accountId): array
+    {
+        return XCommunity::listFrom(self::unwrap($this->http->post("/accounts/{$accountId}/communities/sync")));
+    }
+
+    /**
+     * Find communities on X by name.
+     *
+     * @return array<int, XCommunityMatch>
+     */
+    public function searchCommunities(string $accountId, string $q): array
+    {
+        $body = $this->http->get("/accounts/{$accountId}/communities/search", ['q' => $q]);
+
+        return XCommunityMatch::listFrom(self::unwrap($body));
+    }
+
+    /** Link a community by its X id when the sync cannot see it. */
+    public function addCommunity(string $accountId, string $communityId, ?string $name = null): XCommunity
+    {
+        $body = self::compact(['communityId' => $communityId, 'name' => $name]);
+
+        $result = $this->http->post("/accounts/{$accountId}/communities/manual", $body);
+
+        return XCommunity::fromArray(self::unwrap($result));
+    }
+
+    /** `$communityId` is the internal `XCommunity::$id`, not the X id. */
+    public function removeCommunity(string $accountId, int $communityId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/communities/{$communityId}");
     }
 }

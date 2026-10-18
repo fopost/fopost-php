@@ -39,4 +39,56 @@ final class WorkspacesTest extends TestCase
         $this->assertCount(1, $workspace->accounts);
         $this->assertSame('bluesky', $workspace->accounts[0]->platform);
     }
+
+    public function testCreateUpdateAndDeleteSendTheRightBodies(): void
+    {
+        $this->transport->push(201, ['id' => 'w_2', 'name' => 'Client', 'connect_redirect_domains' => []]);
+        $this->transport->push(200, [
+            'id' => 'w_2',
+            'name' => 'Client',
+            'require_approval' => true,
+            'connect_redirect_domains' => ['yourbrand.com'],
+        ]);
+        $this->transport->push(204);
+
+        $workspaces = $this->client()->workspaces();
+        $created = $workspaces->create('Client', type: 'CLIENT', timezone: 'Europe/Zagreb');
+        $updated = $workspaces->update('w_2', requireApproval: true, connectRedirectDomains: ['yourbrand.com']);
+        $workspaces->delete('w_2');
+
+        $this->assertSame('POST', $this->transport->requests[0]['method']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces', $this->transport->requests[0]['url']);
+        $this->assertSame(
+            ['name' => 'Client', 'type' => 'CLIENT', 'timezone' => 'Europe/Zagreb'],
+            json_decode((string) $this->transport->requests[0]['body'], true),
+        );
+        $this->assertSame('w_2', $created->id);
+
+        $this->assertSame('PUT', $this->transport->requests[1]['method']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces/w_2', $this->transport->requests[1]['url']);
+        $this->assertSame(
+            ['requireApproval' => true, 'connectRedirectDomains' => ['yourbrand.com']],
+            json_decode((string) $this->transport->requests[1]['body'], true),
+        );
+        $this->assertSame(['yourbrand.com'], $updated->connectRedirectDomains);
+
+        $this->assertSame('DELETE', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces/w_2', $this->transport->last()['url']);
+    }
+
+    public function testAnalyticsSumsTheAccounts(): void
+    {
+        $this->transport->push(200, [
+            'workspace_id' => 'w_1',
+            'accounts' => [['account_id' => 'a_1', 'platform' => 'bluesky', 'username' => 'y', 'followers' => 200]],
+            'totals' => ['followers' => 200, 'total_posts' => 12],
+        ]);
+
+        $analytics = $this->client()->workspaces()->analytics('w_1');
+
+        $this->assertSame('GET', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces/w_1/analytics', $this->transport->last()['url']);
+        $this->assertSame(200, $analytics->accounts[0]->followers);
+        $this->assertSame(12, $analytics->totalPosts);
+    }
 }

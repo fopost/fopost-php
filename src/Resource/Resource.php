@@ -9,6 +9,7 @@ use Fopost\Sdk\Http\HttpClient;
 use Fopost\Sdk\Model\Model;
 use Fopost\Sdk\Model\Page;
 use Fopost\Sdk\Model\PageMeta;
+use InvalidArgumentException;
 
 abstract class Resource
 {
@@ -61,5 +62,44 @@ abstract class Resource
         }
 
         return $value;
+    }
+
+    /**
+     * A path becomes {filename, contents, mimeType}; an array is checked for the same keys.
+     *
+     * @param array<int, string|array<string, mixed>> $files
+     * @return array<int, array{filename: string, contents: string, mimeType: string}>
+     */
+    protected static function normalizeFiles(array $files): array
+    {
+        $out = [];
+        foreach ($files as $file) {
+            if (is_string($file)) {
+                $contents = is_file($file) ? file_get_contents($file) : false;
+                if ($contents === false) {
+                    throw new InvalidArgumentException("fopost: cannot read file {$file}");
+                }
+                $mime = function_exists('mime_content_type') ? mime_content_type($file) : false;
+                $out[] = [
+                    'filename' => basename($file),
+                    'contents' => $contents,
+                    'mimeType' => is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream',
+                ];
+                continue;
+            }
+            $filename = $file['filename'] ?? null;
+            $contents = $file['contents'] ?? null;
+            if (!is_string($filename) || $filename === '' || !is_string($contents)) {
+                throw new InvalidArgumentException('fopost: a file needs a filename and its contents');
+            }
+            $mime = $file['mimeType'] ?? null;
+            $out[] = [
+                'filename' => $filename,
+                'contents' => $contents,
+                'mimeType' => is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream',
+            ];
+        }
+
+        return $out;
     }
 }
