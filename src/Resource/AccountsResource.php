@@ -40,6 +40,8 @@ use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
 use Fopost\Sdk\Model\WebhookSubscription;
+use Fopost\Sdk\Model\XCommunity;
+use Fopost\Sdk\Model\XCommunityMatch;
 use Fopost\Sdk\Model\TikTokCreatorInfo;
 use Fopost\Sdk\Model\TikTokMusic;
 use Fopost\Sdk\Model\TikTokPlace;
@@ -886,5 +888,55 @@ final class AccountsResource extends Resource
         return LinkedInMention::listFrom(
             self::unwrap($this->http->get("/accounts/{$accountId}/linkedin/mentions", ['q' => $q])),
         );
+    }
+
+    // ── X communities ──
+
+    /**
+     * The X communities linked to the account.
+     *
+     * @return array<int, XCommunity>
+     */
+    public function listCommunities(string $accountId): array
+    {
+        return XCommunity::listFrom(self::unwrap($this->http->get("/accounts/{$accountId}/communities")));
+    }
+
+    /**
+     * Pull the account's community memberships from X and link them.
+     *
+     * @return array<int, XCommunity>
+     */
+    public function syncCommunities(string $accountId): array
+    {
+        return XCommunity::listFrom(self::unwrap($this->http->post("/accounts/{$accountId}/communities/sync")));
+    }
+
+    /**
+     * Find communities on X by name.
+     *
+     * @return array<int, XCommunityMatch>
+     */
+    public function searchCommunities(string $accountId, string $q): array
+    {
+        $body = $this->http->get("/accounts/{$accountId}/communities/search", ['q' => $q]);
+
+        return XCommunityMatch::listFrom(self::unwrap($body));
+    }
+
+    /** Link a community by its X id when the sync cannot see it. */
+    public function addCommunity(string $accountId, string $communityId, ?string $name = null): XCommunity
+    {
+        $body = self::compact(['communityId' => $communityId, 'name' => $name]);
+
+        $result = $this->http->post("/accounts/{$accountId}/communities/manual", $body);
+
+        return XCommunity::fromArray(self::unwrap($result));
+    }
+
+    /** `$communityId` is the internal `XCommunity::$id`, not the X id. */
+    public function removeCommunity(string $accountId, int $communityId): void
+    {
+        $this->http->delete("/accounts/{$accountId}/communities/{$communityId}");
     }
 }
