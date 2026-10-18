@@ -21,8 +21,11 @@ All notable changes to `fopost/sdk` are documented here.
   (`listRuns`, `getRun`), with `Automation`, `AutomationStep`, `AutomationStats`,
   `AutomationVersion`, `AutomationNodeRef`, `AutomationRestore`, `AutomationRun`,
   `AutomationRunLog` and `AutomationToggle`.
-- `$client->workspaces()->create()`, `update()` and `delete()`. `Workspace` carries
+- `$client->workspaces()->create()`, `update()`, `delete()` and `analytics()` (`WorkspaceAnalytics`,
+  `WorkspaceAccountStats`). `Workspace` carries
   `connectRedirectDomains` and `updatedAt`.
+- `$client->accounts()->validate()` (`AccountValidation`), `refreshToken()`, `togglePrimary()`
+  (`AccountPrimary`) and `analyticsHistory()` (`AccountAnalyticsHistory`, `AccountSnapshot`).
 - `$client->accounts()` X communities: `listCommunities`, `syncCommunities`,
   `searchCommunities`, `addCommunity` and `removeCommunity` (`XCommunity`, `XCommunityMatch`).
 - `$client->logs()->list()` reads the request log into `RequestLogPage` (`RequestLog`,

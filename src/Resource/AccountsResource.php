@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Resource;
 
+use Fopost\Sdk\Model\AccountAnalyticsHistory;
 use Fopost\Sdk\Model\AccountMove;
+use Fopost\Sdk\Model\AccountPrimary;
 use Fopost\Sdk\Model\AccountPlatformMetrics;
 use Fopost\Sdk\Model\AccountRename;
+use Fopost\Sdk\Model\AccountValidation;
 use Fopost\Sdk\Model\DiscordChannel;
 use Fopost\Sdk\Model\DiscordIdentity;
 use Fopost\Sdk\Model\DiscordMember;
@@ -39,6 +42,7 @@ use Fopost\Sdk\Model\TelegramBotCommand;
 use Fopost\Sdk\Model\TelegramBotCommands;
 use Fopost\Sdk\Model\TelegramConnectCode;
 use Fopost\Sdk\Model\TelegramConnectStatus;
+use DateTimeImmutable;
 use Fopost\Sdk\Model\WebhookSubscription;
 use Fopost\Sdk\Model\XCommunity;
 use Fopost\Sdk\Model\XCommunityMatch;
@@ -107,6 +111,35 @@ final class AccountsResource extends Resource
         return AccountPlatformMetrics::fromArray(
             self::unwrap($this->http->get("/accounts/{$accountId}/insights", ['raw' => 'true'])),
         );
+    }
+
+    /** Check the stored credentials against the network now. */
+    public function validate(string $accountId): AccountValidation
+    {
+        return AccountValidation::fromArray(self::unwrap($this->http->post("/accounts/{$accountId}/validate")));
+    }
+
+    /** Refresh the access token now; answers when the new one expires, or null when it does not. */
+    public function refreshToken(string $accountId): ?DateTimeImmutable
+    {
+        $body = self::asArray(self::unwrap($this->http->post("/accounts/{$accountId}/refresh-token")));
+        $expiresAt = $body['expires_at'] ?? null;
+
+        return is_string($expiresAt) && $expiresAt !== '' ? new DateTimeImmutable($expiresAt) : null;
+    }
+
+    /** Make the account the workspace's primary one, or step it down when it already is. */
+    public function togglePrimary(string $accountId): AccountPrimary
+    {
+        return AccountPrimary::fromArray(self::unwrap($this->http->post("/accounts/{$accountId}/primary")));
+    }
+
+    /** The collected profile readings, newest first; `$limit` caps how many. */
+    public function analyticsHistory(string $accountId, ?int $limit = null): AccountAnalyticsHistory
+    {
+        $body = $this->http->get("/accounts/{$accountId}/analytics", self::compact(['limit' => $limit]));
+
+        return AccountAnalyticsHistory::fromArray(self::unwrap($body));
     }
 
     /** Rename the account; null or an empty string restores the platform name. */

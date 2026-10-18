@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fopost\Sdk\Resource;
 
 use Fopost\Sdk\Model\Workspace;
+use Fopost\Sdk\Model\WorkspaceAnalytics;
 use Fopost\Sdk\Undefined;
 
 /** $client->workspaces(): the workspaces the key can reach. */
@@ -19,6 +20,12 @@ final class WorkspacesResource extends Resource
     public function get(string $workspaceId): Workspace
     {
         return Workspace::fromArray(self::unwrap($this->http->get("/workspaces/{$workspaceId}")));
+    }
+
+    /** The latest profile numbers of every account in the workspace, and their sum. */
+    public function analytics(string $workspaceId): WorkspaceAnalytics
+    {
+        return WorkspaceAnalytics::fromArray(self::unwrap($this->http->get("/workspaces/{$workspaceId}/analytics")));
     }
 
     /** `$type` is PERSONAL, TEAM, ORGANIZATION, CLIENT, PROJECT, DEPARTMENT, EVENT, TEMPORARY, COMMUNITY, BRAND or AGENCY. */

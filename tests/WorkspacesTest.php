@@ -75,4 +75,20 @@ final class WorkspacesTest extends TestCase
         $this->assertSame('DELETE', $this->transport->last()['method']);
         $this->assertSame('https://api.fopost.com/v1/workspaces/w_2', $this->transport->last()['url']);
     }
+
+    public function testAnalyticsSumsTheAccounts(): void
+    {
+        $this->transport->push(200, [
+            'workspace_id' => 'w_1',
+            'accounts' => [['account_id' => 'a_1', 'platform' => 'bluesky', 'username' => 'y', 'followers' => 200]],
+            'totals' => ['followers' => 200, 'total_posts' => 12],
+        ]);
+
+        $analytics = $this->client()->workspaces()->analytics('w_1');
+
+        $this->assertSame('GET', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/workspaces/w_1/analytics', $this->transport->last()['url']);
+        $this->assertSame(200, $analytics->accounts[0]->followers);
+        $this->assertSame(12, $analytics->totalPosts);
+    }
 }
