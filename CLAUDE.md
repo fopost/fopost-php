@@ -64,6 +64,7 @@ src/
     TelegramConnectCode.php TelegramConnectStatus.php TelegramBotCommand.php TelegramBotCommands.php
     SlackChannel.php SlackMember.php SlackIdentity.php
     Inbox*.php (item, thread, conversation, account, platform, approval, reply, refresh and start-conversation results)
+    XPost.php XSearchPage.php XFollowResult.php
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php LeadFormDetail.php FeedLead.php LeadsFeedPage.php LeadPage.php
@@ -97,7 +98,9 @@ is added.
 
 - `inbox` (scope `inbox`) covers `/inbox`, `/inbox/posts`, `/inbox/conversations`, `unread-count`,
   `accounts`, `platforms`, `read`, `refresh`, `approvals` (+ `approve`/`reject`, integer ids), and
-  per-item `PATCH`, `reply`, `hide`, `unhide`, `DELETE`. Not wrapped: `/inbox/chat/*` (browser
+  per-item `PATCH`, `reply`, `hide`, `unhide`, `DELETE`, `like`/`unlike`, `repost`/`unrepost`,
+  `bookmark`/`unbookmark`, plus the X pass-through reads `/x/posts/{id}` and `/x/search`
+  (`getXPost`, `searchXPosts`, `account_id` required). Not wrapped: `/inbox/chat/*` (browser
   encrypted X Chat) and `/inbox/{id}/attachments/{index}` (a binary stream; the SDK has no binary
   download path). The read and refresh bodies are snake_case, the item `PATCH` is camelCase
   (`snoozedUntil`), and list `meta` is `{page, perPage, total}` — `PageMeta` reads `page` as

@@ -194,6 +194,11 @@ $subreddits = $client->accounts()->listRedditSubreddits('acc_1');
 $rules = $client->accounts()->listRedditSubredditRules('acc_1', 'webdev');
 $flairs = $client->accounts()->listRedditFlairs('acc_1', 'webdev');
 $client->accounts()->setRedditDefaultSubreddit('acc_1', 'webdev');
+
+// X: follow and unfollow by numeric X user id. Needs the `publish` scope too. An X account
+// connected before this shipped answers 409 `reconnect_required` until it is reconnected.
+$client->accounts()->followXUser('acc_1', '2244994945');
+$client->accounts()->unfollowXUser('acc_1', '2244994945');
 ```
 
 ## Google Business Profile
@@ -302,6 +307,8 @@ $client->inbox()->delete($item->id);        // also deletes our own reply
 
 // These also need the `publish` scope; the item's can* flags say where each works.
 $client->inbox()->like($item->id);          // unlike()
+$client->inbox()->repost($item->id);        // unrepost(); X, where canRepost is true
+$client->inbox()->bookmark($item->id);      // unbookmark(); X, where canBookmark is true
 $client->inbox()->vote($item->id, 'down');  // 'up', 'down', or 'none' to take it back
 $client->inbox()->pin($item->id);           // unpin()
 $client->inbox()->react($item->id, '❤️');   // null removes ours
@@ -320,6 +327,12 @@ foreach ($client->inbox()->listApprovals($workspaceId) as $approval) {
     $client->inbox()->approveReply($approval->id);          // or approveReply($id, 'edited text')
 }
 $client->inbox()->rejectReply($approval->id);
+
+// X pass-through reads, with the X account whose token does the read. Each one is an X API
+// call metered to the workspace; an empty X balance is a 402 `platform_balance_spent`.
+$post = $client->inbox()->getXPost('1790000000000000001', $accountId);
+$results = $client->inbox()->searchXPosts('launch day', $accountId, ['max_results' => 20]);
+$more = $client->inbox()->searchXPosts('launch day', $accountId, ['next_token' => $results->nextToken]);
 ```
 
 ## Contacts
