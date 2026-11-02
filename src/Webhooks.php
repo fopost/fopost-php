@@ -11,8 +11,8 @@ use Fopost\Sdk\Model\WebhookEvent;
  * Verifies a FoPost webhook delivery and returns its envelope.
  *
  *     $event = Webhooks::verify(file_get_contents('php://input'), getallheaders(), $secret);
- *     if ($event->event === Blog::ARTICLE_PUBLISHED_EVENT) {
- *         $article = $event->article();
+ *     if ($event->event === 'post.published') {
+ *         $postId = $event->data['id'];
  *     }
  *
  * The API signs the exact bytes it sends, so pass the raw request body and

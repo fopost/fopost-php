@@ -499,51 +499,6 @@ foreach ($client->sequences()->enrollments($sequence->id) as $enrollment) {
 }
 ```
 
-## Blog
-
-Keywords planned for a website and the articles written from them. A post goes to a social network; an article goes to a website. Reads, settings, keyword edits and `submitArticle()` need the `posts` scope; `suggestSeeds()`, `planKeywords()`, `requestArticle()` and `regenerateArticle()` spend credits and need `ai` (an empty balance is a `PaymentRequiredException`); `publishArticle()` needs `publish`.
-
-`suggestSeeds()` proposes search terms from the blog `goal` and topics, `planKeywords()` researches them into `suggested` keywords, and setting a keyword's status to `planned` puts it on the calendar. A draft is submitted for approval with `submitArticle()` before it can be published.
-
-```php
-$article = $client->blog()->requestArticle(
-    $workspaceId,
-    keyword: 'sharpen garden shears',
-    instructions: 'Open with the tools a beginner already owns.',
-);
-
-// The writer runs in the background; the draft appears once it is done.
-foreach ($client->blog()->listArticles($workspaceId, status: 'draft') as $draft) {
-    echo $draft->title, ' (', $draft->wordCount, ' words)', PHP_EOL;
-}
-
-$full = $client->blog()->getArticle($workspaceId, $article->id);
-$client->blog()->submitArticle($workspaceId, $full->id);
-$client->blog()->publishArticle($workspaceId, $full->id);
-```
-
-Point the blog at your own site with `updateSettings($workspaceId, ['targetKind' => 'website', 'websiteUrl' => 'https://yourbrand.com/fopost/articles'])`. The first time `websiteUrl` is set the result carries `websiteSecret`, shown once; every published article is then POSTed to that URL as a signed `article.published` webhook. Verify it from the raw request bytes, never a re-encoded array:
-
-```php
-use Fopost\Sdk\Exception\WebhookSignatureException;
-use Fopost\Sdk\Webhooks;
-
-try {
-    $event = Webhooks::verify(file_get_contents('php://input'), getallheaders(), $websiteSecret);
-} catch (WebhookSignatureException $e) {
-    http_response_code(401);
-    exit;
-}
-
-if ($event->event === 'article.published') {
-    $article = $event->article();
-    // Image URLs are good for six hours; download and store your own copy.
-    save($article->slug, $article->bodyHtml, $article->featuredImage?->url);
-}
-```
-
-`Webhooks::verify()` works for every FoPost webhook, not only the blog. It prefers the timestamped signature and refuses a delivery older than five minutes, falling back to the body-only signature when no timestamp header is present.
-
 ## Knowledge
 
 What the workspace has told FoPost about itself. Retrieval over these sources
@@ -1014,6 +969,26 @@ foreach ($client->webhooks()->listDeliveries($hook->id, status: 'failed') as $de
 $delivery = $client->webhooks()->getDelivery($hook->id, $deliveryId); // ->payload as sent
 $client->webhooks()->delete($hook->id);
 ```
+
+Verify a delivery from the raw request bytes, never a re-encoded array:
+
+```php
+use Fopost\Sdk\Exception\WebhookSignatureException;
+use Fopost\Sdk\Webhooks;
+
+try {
+    $event = Webhooks::verify(file_get_contents('php://input'), getallheaders(), $webhookSecret);
+} catch (WebhookSignatureException $e) {
+    http_response_code(401);
+    exit;
+}
+
+if ($event->event === 'post.published') {
+    $postId = $event->data['id'];
+}
+```
+
+`Webhooks::verify()` prefers the timestamped signature and refuses a delivery older than five minutes, falling back to the body-only signature when no timestamp header is present.
 
 ## Automations
 

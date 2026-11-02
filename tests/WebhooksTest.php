@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Tests;
 
-use Fopost\Sdk\Blog;
 use Fopost\Sdk\Exception\WebhookSignatureException;
 use Fopost\Sdk\Webhooks;
 use PHPUnit\Framework\TestCase;
@@ -17,26 +16,8 @@ final class WebhooksTest extends TestCase
     private function body(): string
     {
         return json_encode([
-            'event' => 'article.published',
-            'data' => [
-                'id' => 'art_1',
-                'title' => 'How to sharpen shears',
-                'slug' => 'how-to-sharpen-shears',
-                'excerpt' => null,
-                'metaTitle' => null,
-                'metaDescription' => null,
-                'bodyMarkdown' => '# Shears',
-                'bodyHtml' => '<h1>Shears</h1>',
-                'featuredImage' => ['mediaId' => 'med_1', 'url' => 'https://cdn.example/1.jpg', 'alt' => 'Shears'],
-                'images' => [
-                    ['mediaId' => 'med_2', 'url' => 'https://cdn.example/2.jpg', 'alt' => 'Stone', 'position' => 1],
-                ],
-                'tags' => ['tools'],
-                'keyword' => 'sharpen garden shears',
-                'wordCount' => 1200,
-                'publishedAt' => '2026-10-10T09:00:00.000Z',
-                'publishedUrl' => 'https://yourbrand.com/blog/how-to-sharpen-shears',
-            ],
+            'event' => 'post.published',
+            'data' => ['id' => 'post_1', 'status' => 'published'],
             'timestamp' => '2026-10-10T09:00:01.000Z',
         ], JSON_THROW_ON_ERROR);
     }
@@ -48,24 +29,19 @@ final class WebhooksTest extends TestCase
             'X-FoPost-Signature' => Webhooks::sign($body, self::SECRET),
             'X-FoPost-Timestamp' => (string) $timestamp,
             'X-FoPost-Signature-256' => Webhooks::signTimestamped($body, self::SECRET, $timestamp),
-            'X-FoPost-Event' => 'article.published',
+            'X-FoPost-Event' => 'post.published',
         ];
     }
 
-    public function testAValidTimestampedSignaturePassesAndParsesTheArticle(): void
+    public function testAValidTimestampedSignaturePassesAndParsesTheEnvelope(): void
     {
         $body = $this->body();
 
         $event = Webhooks::verify($body, $this->timestampedHeaders($body), self::SECRET, self::NOW + 10);
 
-        $this->assertSame(Blog::ARTICLE_PUBLISHED_EVENT, $event->event);
+        $this->assertSame('post.published', $event->event);
         $this->assertSame('2026-10-10T09:00:01+00:00', $event->timestamp?->format(DATE_ATOM));
-        $article = $event->article();
-        $this->assertSame('how-to-sharpen-shears', $article->slug);
-        $this->assertSame('https://yourbrand.com/blog/how-to-sharpen-shears', $article->publishedUrl);
-        $this->assertSame('med_1', $article->featuredImage?->mediaId);
-        $this->assertSame(1, $article->images[0]->position);
-        $this->assertSame(1200, $article->wordCount);
+        $this->assertSame('published', $event->data['status']);
     }
 
     public function testHeaderNamesAreMatchedWithoutCaseAndAsLists(): void
@@ -78,14 +54,14 @@ final class WebhooksTest extends TestCase
 
         $event = Webhooks::verify($body, $headers, self::SECRET, self::NOW);
 
-        $this->assertSame('art_1', $event->data['id']);
+        $this->assertSame('post_1', $event->data['id']);
     }
 
     public function testATamperedBodyFails(): void
     {
         $body = $this->body();
         $headers = $this->timestampedHeaders($body);
-        $tampered = str_replace('how-to-sharpen-shears', 'how-to-drop-tables', $body);
+        $tampered = str_replace('post_1', 'post_2', $body);
 
         $this->expectException(WebhookSignatureException::class);
         $this->expectExceptionMessage('does not match');
@@ -106,7 +82,7 @@ final class WebhooksTest extends TestCase
 
         // Exactly at the edge is still inside the tolerance.
         $edge = $this->timestampedHeaders($body, self::NOW - 300);
-        $this->assertSame('article.published', Webhooks::verify($body, $edge, self::SECRET, self::NOW)->event);
+        $this->assertSame('post.published', Webhooks::verify($body, $edge, self::SECRET, self::NOW)->event);
     }
 
     public function testTheLegacyBodySignaturePassesOnlyWithoutATimestamp(): void
@@ -114,7 +90,7 @@ final class WebhooksTest extends TestCase
         $body = $this->body();
 
         $event = Webhooks::verify($body, ['X-FoPost-Signature' => Webhooks::sign($body, self::SECRET)], self::SECRET);
-        $this->assertSame('article.published', $event->event);
+        $this->assertSame('post.published', $event->event);
 
         // A timestamp with no timestamped signature must not fall back to the plain one.
         $this->expectException(WebhookSignatureException::class);
