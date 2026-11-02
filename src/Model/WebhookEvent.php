@@ -30,10 +30,4 @@ final class WebhookEvent extends Model
             self::date($data, 'timestamp'),
         );
     }
-
-    /** The typed payload of an article.published or article.test delivery. */
-    public function article(): BlogArticleWebhookPayload
-    {
-        return BlogArticleWebhookPayload::fromArray($this->data);
-    }
 }

@@ -36,6 +36,14 @@ All notable changes to `fopost/sdk` are documented here.
   `platform_balance_spent`. An X account connected before this release must be reconnected for
   repost, bookmark and follow, and answers 409 `reconnect_required` until then.
 
+### Removed
+
+- **Breaking:** `$client->blog()` (`/blog`: settings, website secret and test, keywords and
+  articles), the `Blog` constants class, the `BlogSettings`, `BlogSettingsUpdate`, `BlogPlanRun`,
+  `BlogWebsiteTest`, `BlogKeyword`, `BlogArticle`, `BlogArticleFull`, `BlogArticleImage` and
+  `BlogArticleWebhookPayload` models, and `WebhookEvent::article()`. The API no longer serves
+  them; articles are ordinary posts. `$client->blogs()` is unchanged.
+
 ## 0.4.0 - 2026-10-18
 
 ### Added

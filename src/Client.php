@@ -12,7 +12,6 @@ use Fopost\Sdk\Resource\AdsResource;
 use Fopost\Sdk\Resource\AnalyticsResource;
 use Fopost\Sdk\Resource\AiResource;
 use Fopost\Sdk\Resource\AutomationsResource;
-use Fopost\Sdk\Resource\BlogResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ConnectSessionsResource;
 use Fopost\Sdk\Resource\ContactsResource;
@@ -64,7 +63,6 @@ final class Client
     private readonly ContactsResource $contacts;
     private readonly BroadcastsResource $broadcasts;
     private readonly SequencesResource $sequences;
-    private readonly BlogResource $blog;
 
     private readonly KnowledgeResource $knowledge;
     private readonly AdsResource $ads;
@@ -107,7 +105,6 @@ final class Client
         $this->contacts = new ContactsResource($this->http);
         $this->broadcasts = new BroadcastsResource($this->http);
         $this->sequences = new SequencesResource($this->http);
-        $this->blog = new BlogResource($this->http);
         $this->knowledge = new KnowledgeResource($this->http);
         $this->ads = new AdsResource($this->http);
         $this->blogs = new BlogsResource($this->http);
@@ -190,12 +187,6 @@ final class Client
     public function sequences(): SequencesResource
     {
         return $this->sequences;
-    }
-
-    /** Planned keywords and the articles written from them, for a website. */
-    public function blog(): BlogResource
-    {
-        return $this->blog;
     }
 
     public function ads(): AdsResource

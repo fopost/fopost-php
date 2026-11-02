@@ -95,7 +95,7 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
   endpoint; `Page` is `IteratorAggregate + Countable + ArrayAccess` and read-only.
 
 **Resources wired today:** `posts`, `queue`, `accounts`, `connectSessions`, `accountGroups`,
-`workspaces`, `labels`, `ai`, `automations`, `inbox`, `contacts`, `broadcasts`, `sequences`, `blog`,
+`workspaces`, `labels`, `ai`, `automations`, `inbox`, `contacts`, `broadcasts`, `sequences`,
 `knowledge`, `ads`, `blogs`, `media`, `validate`, `webhooks`, `whatsapp`, `analytics`, `googleBusiness`,
 `activity`, `logs`. Anything else goes through the escape hatch `Client::request()` until a
 resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what is still unwrapped.
