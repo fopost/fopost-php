@@ -344,7 +344,7 @@ Comments, mentions and direct messages on connected accounts. Needs the `inbox` 
 
 ```php
 // One page of items, newest first. Filters are optional.
-$page = $client->inbox()->list(workspaceId: $workspaceId, type: 'comment', state: 'unread');
+$page = $client->inbox()->list(workspaceId: $workspaceId, type: 'comment', status: 'unanswered');
 foreach ($page as $item) {
     echo $item->platform, ' ', $item->authorHandle, ': ', $item->text, PHP_EOL;
 }

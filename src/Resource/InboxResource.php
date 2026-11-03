@@ -30,19 +30,21 @@ final class InboxResource extends Resource
     /**
      * One page of items, newest first.
      *
+     * `status` is `unanswered`, `replied` or `resolved`; `sort` is `newest` or `oldest`.
+     *
+     * @param string|array<int, string>|null $accountId One connected account id or several.
      * @return Page<InboxItem>
      */
     public function list(
         ?string $workspaceId = null,
         ?string $type = null,
-        ?string $state = null,
-        ?string $platform = null,
-        ?string $accountId = null,
+        ?string $status = null,
+        string|array|null $accountId = null,
+        string|DateTimeInterface|null $since = null,
         ?string $postId = null,
         ?string $postExternalId = null,
         ?string $conversationId = null,
         ?string $direction = null,
-        ?string $q = null,
         ?string $sort = null,
         int $page = 1,
         int $perPage = 25,
@@ -50,14 +52,13 @@ final class InboxResource extends Resource
         $body = $this->http->get('/inbox', [
             'workspace_id' => $workspaceId,
             'type' => $type,
-            'state' => $state,
-            'platform' => $platform,
-            'account_id' => $accountId,
+            'status' => $status,
+            'account_id' => self::joinIds($accountId),
+            'since' => self::iso($since),
             'post_id' => $postId,
             'post_external_id' => $postExternalId,
             'conversation_id' => $conversationId,
             'direction' => $direction,
-            'q' => $q,
             'sort' => $sort,
             'page' => $page,
             'per_page' => $perPage,
@@ -70,15 +71,15 @@ final class InboxResource extends Resource
      * One row per post with comments; pass kind `mentions` for posts we were tagged in,
      * or `reviews` for one row per review left on the business.
      *
+     * @param string|array<int, string>|null $accountId One connected account id or several.
      * @return Page<InboxThread>
      */
     public function threads(
         ?string $workspaceId = null,
         ?string $kind = null,
-        ?string $platform = null,
-        ?string $accountId = null,
-        ?string $state = null,
-        ?string $q = null,
+        string|array|null $accountId = null,
+        ?string $status = null,
+        string|DateTimeInterface|null $since = null,
         ?string $sort = null,
         int $page = 1,
         int $perPage = 25,
@@ -86,10 +87,9 @@ final class InboxResource extends Resource
         $body = $this->http->get('/inbox/posts', [
             'workspace_id' => $workspaceId,
             'kind' => $kind,
-            'platform' => $platform,
-            'account_id' => $accountId,
-            'state' => $state,
-            'q' => $q,
+            'account_id' => self::joinIds($accountId),
+            'status' => $status,
+            'since' => self::iso($since),
             'sort' => $sort,
             'page' => $page,
             'per_page' => $perPage,
@@ -101,24 +101,23 @@ final class InboxResource extends Resource
     /**
      * One row per DM thread, latest first.
      *
+     * @param string|array<int, string>|null $accountId One connected account id or several.
      * @return Page<InboxConversation>
      */
     public function conversations(
         ?string $workspaceId = null,
-        ?string $platform = null,
-        ?string $accountId = null,
-        ?string $state = null,
-        ?string $q = null,
+        string|array|null $accountId = null,
+        ?string $status = null,
+        string|DateTimeInterface|null $since = null,
         ?string $sort = null,
         int $page = 1,
         int $perPage = 25,
     ): Page {
         $body = $this->http->get('/inbox/conversations', [
             'workspace_id' => $workspaceId,
-            'platform' => $platform,
-            'account_id' => $accountId,
-            'state' => $state,
-            'q' => $q,
+            'account_id' => self::joinIds($accountId),
+            'status' => $status,
+            'since' => self::iso($since),
             'sort' => $sort,
             'page' => $page,
             'per_page' => $perPage,
@@ -408,5 +407,15 @@ final class InboxResource extends Resource
         return XSearchPage::fromArray(
             $this->http->get('/x/search', ['q' => $q, 'account_id' => $accountId] + $options),
         );
+    }
+
+    /** @param string|array<int, string>|null $ids */
+    private static function joinIds(string|array|null $ids): ?string
+    {
+        if (!is_array($ids)) {
+            return $ids;
+        }
+
+        return $ids === [] ? null : implode(',', $ids);
     }
 }

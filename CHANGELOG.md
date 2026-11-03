@@ -15,6 +15,9 @@ All notable changes to `fopost/sdk` are documented here.
 
 ### Added
 
+- `$client->inbox()->list()`, `threads()` and `conversations()` take `status` (`unanswered`,
+  `replied` or `resolved`) and `since` (a `DateTimeInterface` or ISO 8601 string), and
+  `accountId` accepts an array of ids.
 - `$client->ads()->sendConversions()` posts to `/ads/conversions/events` with a required
   `Idempotency-Key`; a replay answers `replayed: true`. `listConversionEvents()` reads the
   stored batches as `ConversionBatch` rows whose events carry identifiers as hashes only.
@@ -38,6 +41,10 @@ All notable changes to `fopost/sdk` are documented here.
 
 ### Removed
 
+- **Breaking:** the `state`, `platform` and `q` filters on `$client->inbox()->list()`,
+  `threads()` and `conversations()`, and the `unanswered` sort. Filter with `status` and
+  `accountId`; `sort` is `newest` or `oldest`. Positional callers should switch to named
+  arguments, since the parameter order changed.
 - **Breaking:** `$client->blog()` (`/blog`: settings, website secret and test, keywords and
   articles), the `Blog` constants class, the `BlogSettings`, `BlogSettingsUpdate`, `BlogPlanRun`,
   `BlogWebsiteTest`, `BlogKeyword`, `BlogArticle`, `BlogArticleFull`, `BlogArticleImage` and
