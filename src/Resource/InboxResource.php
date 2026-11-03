@@ -177,6 +177,30 @@ final class InboxResource extends Resource
         );
     }
 
+    /**
+     * Resolve every unanswered item of `type` (`comment`, `mention`, `review` or `dm`), optionally
+     * only on some accounts or only items dated before `before`. Nothing reaches a platform.
+     * Returns how many items changed.
+     *
+     * @param string|array<int, string>|null $accountId One connected account id or several.
+     */
+    public function resolve(
+        string $workspaceId,
+        string $type,
+        string|array|null $accountId = null,
+        string|DateTimeInterface|null $before = null,
+    ): int {
+        $body = self::compact([
+            'workspace_id' => $workspaceId,
+            'type' => $type,
+            'account_id' => $accountId === null ? null : array_values((array) $accountId),
+            'before' => self::iso($before),
+        ]);
+        $result = self::unwrap($this->http->post('/inbox/resolve', $body));
+
+        return is_array($result) && is_int($result['resolved'] ?? null) ? $result['resolved'] : 0;
+    }
+
     /** Mark the item `unread`, `read`, `resolved` or `snoozed`; `snoozed` needs a future snoozedUntil. */
     public function update(
         string $itemId,

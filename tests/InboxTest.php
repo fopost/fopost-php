@@ -170,6 +170,31 @@ final class InboxTest extends TestCase
         $this->assertSame('x', $result->dmReconnect[0]['platform']);
     }
 
+    public function testResolvePostsTheTypeAndAccountIdsAsAList(): void
+    {
+        $this->transport->push(200, ['data' => ['resolved' => 7]]);
+
+        $resolved = $this->client()->inbox()->resolve(
+            'w_1',
+            'comment',
+            accountId: 'acc_1',
+            before: new DateTimeImmutable('2026-09-01T00:00:00Z'),
+        );
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/inbox/resolve', $this->transport->last()['url']);
+        $this->assertSame(
+            [
+                'workspace_id' => 'w_1',
+                'type' => 'comment',
+                'account_id' => ['acc_1'],
+                'before' => '2026-09-01T00:00:00Z',
+            ],
+            $this->transport->lastJson(),
+        );
+        $this->assertSame(7, $resolved);
+    }
+
     public function testUpdatePatchesStateWithACamelCaseSnoozedUntil(): void
     {
         $this->transport->push(200, ['data' => [

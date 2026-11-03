@@ -15,6 +15,9 @@ All notable changes to `fopost/sdk` are documented here.
 
 ### Added
 
+- `$client->inbox()->resolve($workspaceId, $type, $accountId = null, $before = null)` resolves
+  every unanswered item of one type, optionally only on some accounts or only items dated
+  before `$before`, and returns how many changed. Nothing is sent to a platform.
 - `$client->inbox()->list()`, `threads()` and `conversations()` take `status` (`unanswered`,
   `replied` or `resolved`) and `since` (a `DateTimeInterface` or ISO 8601 string), and
   `accountId` accepts an array of ids.

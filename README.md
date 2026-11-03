@@ -359,6 +359,7 @@ $client->inbox()->accounts($workspaceId);   // inboxSupported / dmSupported per 
 $client->inbox()->platforms();
 
 $client->inbox()->refresh($workspaceId);
+$resolved = $client->inbox()->resolve($workspaceId, 'comment', before: new DateTimeImmutable('-7 days'));
 $client->inbox()->markThreadRead($workspaceId, $accountId, postExternalId: 'ext_9');
 
 $client->inbox()->update($item->id, 'snoozed', new DateTimeImmutable('+1 day'));
