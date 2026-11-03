@@ -101,12 +101,12 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
 resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what is still unwrapped.
 
 - `inbox` (scope `inbox`) covers `/inbox`, `/inbox/posts`, `/inbox/conversations`, `unread-count`,
-  `accounts`, `platforms`, `read`, `refresh`, `approvals` (+ `approve`/`reject`, integer ids), and
+  `accounts`, `platforms`, `read`, `refresh`, `resolve`, `approvals` (+ `approve`/`reject`, integer ids), and
   per-item `PATCH`, `reply`, `hide`, `unhide`, `DELETE`, `like`/`unlike`, `repost`/`unrepost`,
   `bookmark`/`unbookmark`, plus the X pass-through reads `/x/posts/{id}` and `/x/search`
   (`getXPost`, `searchXPosts`, `account_id` required). Not wrapped: `/inbox/chat/*` (browser
   encrypted X Chat) and `/inbox/{id}/attachments/{index}` (a binary stream; the SDK has no binary
-  download path). The read and refresh bodies are snake_case, the item `PATCH` is camelCase
+  download path). The read, refresh and resolve bodies are snake_case, the item `PATCH` is camelCase
   (`snoozedUntil`), and list `meta` is `{page, perPage, total}` — `PageMeta` reads `page` as
   `currentPage` for it.
 - `contacts` (scope `inbox`) covers `/contacts` (list/get/create/update/delete), `import`,

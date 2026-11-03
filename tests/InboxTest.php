@@ -42,14 +42,17 @@ final class InboxTest extends TestCase
         $page = $this->client()->inbox()->list(
             workspaceId: 'w_1',
             type: 'comment',
-            state: 'unread',
+            status: 'unanswered',
+            accountId: ['acc_1', 'acc_2'],
+            since: new DateTimeImmutable('2026-09-01T00:00:00Z'),
             page: 2,
             perPage: 10,
         );
 
         $this->assertSame('GET', $this->transport->last()['method']);
         $this->assertSame(
-            'https://api.fopost.com/v1/inbox?workspace_id=w_1&type=comment&state=unread&page=2&per_page=10',
+            'https://api.fopost.com/v1/inbox?workspace_id=w_1&type=comment&status=unanswered'
+            . '&account_id=acc_1%2Cacc_2&since=2026-09-01T00%3A00%3A00Z&page=2&per_page=10',
             $this->transport->last()['url'],
         );
         $this->assertCount(1, $page);
@@ -96,10 +99,10 @@ final class InboxTest extends TestCase
             'participant' => ['name' => 'Sam Okafor', 'handle' => 'sam'],
         ]], 'meta' => ['page' => 1, 'perPage' => 25, 'total' => 1]]);
 
-        $conversations = $this->client()->inbox()->conversations(workspaceId: 'w_1', platform: 'x');
+        $conversations = $this->client()->inbox()->conversations(workspaceId: 'w_1', status: 'replied');
 
         $this->assertSame(
-            'https://api.fopost.com/v1/inbox/conversations?workspace_id=w_1&platform=x&page=1&per_page=25',
+            'https://api.fopost.com/v1/inbox/conversations?workspace_id=w_1&status=replied&page=1&per_page=25',
             $this->transport->last()['url'],
         );
         $this->assertSame('c_1', $conversations[0]->conversationId);
@@ -165,6 +168,31 @@ final class InboxTest extends TestCase
         $this->assertSame(2, $result->accountsPolled);
         $this->assertSame(5, $result->newItems);
         $this->assertSame('x', $result->dmReconnect[0]['platform']);
+    }
+
+    public function testResolvePostsTheTypeAndAccountIdsAsAList(): void
+    {
+        $this->transport->push(200, ['data' => ['resolved' => 7]]);
+
+        $resolved = $this->client()->inbox()->resolve(
+            'w_1',
+            'comment',
+            accountId: 'acc_1',
+            before: new DateTimeImmutable('2026-09-01T00:00:00Z'),
+        );
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/inbox/resolve', $this->transport->last()['url']);
+        $this->assertSame(
+            [
+                'workspace_id' => 'w_1',
+                'type' => 'comment',
+                'account_id' => ['acc_1'],
+                'before' => '2026-09-01T00:00:00Z',
+            ],
+            $this->transport->lastJson(),
+        );
+        $this->assertSame(7, $resolved);
     }
 
     public function testUpdatePatchesStateWithACamelCaseSnoozedUntil(): void
