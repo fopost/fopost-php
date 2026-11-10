@@ -338,13 +338,17 @@ final class PostsResource extends Resource
      * Check a CSV of posts row by row without creating anything.
      *
      * @param string|array{filename: string, contents: string, mimeType?: string} $file A path or an in-memory file.
+     * @param array<int, string> $accounts Ids or platform names for rows whose accounts cell is empty.
      */
-    public function validateBulkImport(string $workspaceId, string|array $file): BulkImportValidation
-    {
+    public function validateBulkImport(
+        string $workspaceId,
+        string|array $file,
+        array $accounts = [],
+    ): BulkImportValidation {
         $body = $this->http->requestMultipart(
             'POST',
             '/posts/bulk-import/validate',
-            ['workspace_id' => $workspaceId],
+            self::bulkImportFields($workspaceId, $accounts),
             self::normalizeFiles([$file]),
             'file',
         );
@@ -356,18 +360,33 @@ final class PostsResource extends Resource
      * Create every valid row of the CSV as a post. Needs the `publish` scope as well.
      *
      * @param string|array{filename: string, contents: string, mimeType?: string} $file A path or an in-memory file.
+     * @param array<int, string> $accounts Ids or platform names for rows whose accounts cell is empty.
      */
-    public function commitBulkImport(string $workspaceId, string|array $file): BulkImportCommit
+    public function commitBulkImport(string $workspaceId, string|array $file, array $accounts = []): BulkImportCommit
     {
         $body = $this->http->requestMultipart(
             'POST',
             '/posts/bulk-import/commit',
-            ['workspace_id' => $workspaceId],
+            self::bulkImportFields($workspaceId, $accounts),
             self::normalizeFiles([$file]),
             'file',
         );
 
         return BulkImportCommit::fromArray(self::unwrap($body));
+    }
+
+    /**
+     * @param array<int, string> $accounts
+     * @return array<string, string>
+     */
+    private static function bulkImportFields(string $workspaceId, array $accounts): array
+    {
+        $fields = ['workspace_id' => $workspaceId];
+        if ($accounts !== []) {
+            $fields['accounts'] = implode(',', $accounts);
+        }
+
+        return $fields;
     }
 
     /** Delete every post a bulk import created. */
