@@ -239,7 +239,7 @@ final class PostsTest extends TestCase
 
         $csv = ['filename' => 'posts.csv', 'contents' => "text\nHi\n", 'mimeType' => 'text/csv'];
         $check = $this->client()->posts()->validateBulkImport('w_1', $csv);
-        $commit = $this->client()->posts()->commitBulkImport('w_1', $csv);
+        $commit = $this->client()->posts()->commitBulkImport('w_1', $csv, ['twitter', 'linkedin']);
         $rollback = $this->client()->posts()->rollbackBulkImport('b_1');
 
         $first = $this->transport->requests[0];
@@ -248,10 +248,15 @@ final class PostsTest extends TestCase
         $this->assertStringStartsWith('multipart/form-data; boundary=', $first['headers']['Content-Type']);
         $this->assertStringContainsString('name="workspace_id"' . "\r\n\r\nw_1", (string) $first['body']);
         $this->assertStringContainsString('name="file"; filename="posts.csv"', (string) $first['body']);
+        $this->assertStringNotContainsString('name="accounts"', (string) $first['body']);
         $this->assertSame(1, $check->invalidRows);
         $this->assertSame(['unknown account'], $check->rows[0]->errors);
 
         $this->assertSame('https://api.fopost.com/v1/posts/bulk-import/commit', $this->transport->requests[1]['url']);
+        $this->assertStringContainsString(
+            'name="accounts"' . "\r\n\r\ntwitter,linkedin",
+            (string) $this->transport->requests[1]['body'],
+        );
         $this->assertSame('b_1', $commit->batchId);
         $this->assertSame('2026-03-01', $commit->posts[0]->scheduleAt?->format('Y-m-d'));
 

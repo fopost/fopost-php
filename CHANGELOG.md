@@ -15,6 +15,9 @@ All notable changes to `fopost/sdk` are documented here.
 
 ### Added
 
+- `validateBulkImport()` and `commitBulkImport()` take an optional `$accounts` list (account
+  ids or platform names), sent comma-separated and applied to every CSV row whose own
+  `accounts` cell is empty.
 - `$client->inbox()->resolve($workspaceId, $type, $accountId = null, $before = null)` resolves
   every unanswered item of one type, optionally only on some accounts or only items dated
   before `$before`, and returns how many changed. Nothing is sent to a platform.
