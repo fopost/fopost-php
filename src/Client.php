@@ -29,6 +29,7 @@ use Fopost\Sdk\Resource\PostsResource;
 use Fopost\Sdk\Resource\QueueResource;
 use Fopost\Sdk\Resource\SequencesResource;
 use Fopost\Sdk\Resource\ValidateResource;
+use Fopost\Sdk\Resource\VideoEditsResource;
 use Fopost\Sdk\Resource\WebhooksResource;
 use Fopost\Sdk\Resource\WhatsappResource;
 use Fopost\Sdk\Resource\WorkspacesResource;
@@ -77,6 +78,7 @@ final class Client
     private readonly GoogleBusinessResource $googleBusiness;
     private readonly DesignsResource $designs;
     private readonly FontsResource $fonts;
+    private readonly VideoEditsResource $videoEdits;
 
     public function __construct(
         ?string $apiKey = null,
@@ -120,6 +122,7 @@ final class Client
         $this->googleBusiness = new GoogleBusinessResource($this->http);
         $this->designs = new DesignsResource($this->http);
         $this->fonts = new FontsResource($this->http);
+        $this->videoEdits = new VideoEditsResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -258,6 +261,12 @@ final class Client
     public function fonts(): FontsResource
     {
         return $this->fonts;
+    }
+
+    /** Video edit jobs: trim, cut, subtitles, clips and the rest. */
+    public function videoEdits(): VideoEditsResource
+    {
+        return $this->videoEdits;
     }
 
     public function baseUrl(): string
