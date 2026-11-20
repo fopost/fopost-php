@@ -16,6 +16,7 @@ use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ConnectSessionsResource;
 use Fopost\Sdk\Resource\ContactsResource;
 use Fopost\Sdk\Resource\DesignsResource;
+use Fopost\Sdk\Resource\FontsResource;
 use Fopost\Sdk\Resource\GoogleBusinessResource;
 use Fopost\Sdk\Resource\BlogsResource;
 use Fopost\Sdk\Resource\InboxResource;
@@ -75,6 +76,7 @@ final class Client
     private readonly AnalyticsResource $analytics;
     private readonly GoogleBusinessResource $googleBusiness;
     private readonly DesignsResource $designs;
+    private readonly FontsResource $fonts;
 
     public function __construct(
         ?string $apiKey = null,
@@ -117,6 +119,7 @@ final class Client
         $this->analytics = new AnalyticsResource($this->http);
         $this->googleBusiness = new GoogleBusinessResource($this->http);
         $this->designs = new DesignsResource($this->http);
+        $this->fonts = new FontsResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -250,6 +253,11 @@ final class Client
     public function designs(): DesignsResource
     {
         return $this->designs;
+    }
+
+    public function fonts(): FontsResource
+    {
+        return $this->fonts;
     }
 
     public function baseUrl(): string
