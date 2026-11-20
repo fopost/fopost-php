@@ -15,6 +15,7 @@ use Fopost\Sdk\Resource\AutomationsResource;
 use Fopost\Sdk\Resource\BroadcastsResource;
 use Fopost\Sdk\Resource\ConnectSessionsResource;
 use Fopost\Sdk\Resource\ContactsResource;
+use Fopost\Sdk\Resource\DesignsResource;
 use Fopost\Sdk\Resource\GoogleBusinessResource;
 use Fopost\Sdk\Resource\BlogsResource;
 use Fopost\Sdk\Resource\InboxResource;
@@ -73,6 +74,7 @@ final class Client
     private readonly WhatsappResource $whatsapp;
     private readonly AnalyticsResource $analytics;
     private readonly GoogleBusinessResource $googleBusiness;
+    private readonly DesignsResource $designs;
 
     public function __construct(
         ?string $apiKey = null,
@@ -114,6 +116,7 @@ final class Client
         $this->whatsapp = new WhatsappResource($this->http);
         $this->analytics = new AnalyticsResource($this->http);
         $this->googleBusiness = new GoogleBusinessResource($this->http);
+        $this->designs = new DesignsResource($this->http);
     }
 
     public function posts(): PostsResource
@@ -241,6 +244,12 @@ final class Client
     public function blogs(): BlogsResource
     {
         return $this->blogs;
+    }
+
+    /** Designs: create, edit, version, export and bulk-fill. */
+    public function designs(): DesignsResource
+    {
+        return $this->designs;
     }
 
     public function baseUrl(): string
