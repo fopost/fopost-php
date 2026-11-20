@@ -15,6 +15,19 @@ All notable changes to `fopost/sdk` are documented here.
 
 ### Added
 
+- `$client->designs()` over `/designs` (`posts` scope): `list()`, `create()`, `get()`, `update()`,
+  `delete()`, `versions()`, `restoreVersion()`, `duplicate()`, `export()`, `bulk()`, `posts()`,
+  `fromPost()` and `textToSlides()` (also `ai` scope), with `Design`, `DesignVersion`,
+  `DesignRevision`, `DesignExport`, `DesignExportFile`, `DesignPost` and `SlideOutline`. The
+  design document is passed through as a plain array.
+- `$client->fonts()` over `/fonts` (`posts` scope): `list()` returns a `FontCatalog` of
+  `LibraryFont` and `UploadedFont`, `upload()` sends one font file as multipart from a path or
+  bytes, and `delete()` removes an uploaded font.
+- `$client->videoEdits()` over `/video-edits` (`posts` scope, plus `ai` for AI operations):
+  `ops()`, `list()`, `create()` with `[{op, params}]` operations, and `get()`, as `VideoEditOp`
+  and `VideoEdit`.
+- `$client->media()->generateAltText($mediaId)` writes and stores alt text for a library image
+  (also `ai` scope), returning a `GeneratedAltText`.
 - `validateBulkImport()` and `commitBulkImport()` take an optional `$accounts` list (account
   ids or platform names), sent comma-separated and applied to every CSV row whose own
   `accounts` cell is empty.

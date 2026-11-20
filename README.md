@@ -819,6 +819,89 @@ $client->media()->delete($page->items[0]->id);
 A file over the limit is a `413` with `error: file_too_large`; it arrives as an `ApiException` whose
 `getBody()['max_file_bytes']` says what would have fit, and `getBody()['upgrade_url']` where to raise it.
 
+Write alt text for an image with AI. It is stored on the asset, replacing any existing text, and
+uses AI credits, so an API key also needs the `ai` scope:
+
+```php
+$alt = $client->media()->generateAltText($assetId);
+echo $alt->altText, ' ', implode(', ', $alt->tags), PHP_EOL;
+```
+
+## Designs
+
+Stories, posts, carousels, thumbnails, cards and collages. Needs the `posts` scope. The design
+document is a plain array; pass a `stdClass` where an empty JSON object must stay `{}`.
+
+```php
+$design = $client->designs()->create($workspaceId, 'story', name: 'Launch story');
+$designs = $client->designs()->list($workspaceId, kind: 'carousel', limit: 20);
+
+$design = $client->designs()->get($design->id);
+$document = $design->document;
+// ...edit $document...
+$revision = $client->designs()->update($design->id, document: $document, createVersion: true);
+echo $revision->version?->version, PHP_EOL;
+
+$versions = $client->designs()->versions($design->id);
+$client->designs()->restoreVersion($design->id, $versions[1]->id);
+
+// Render into the media library: png, jpg, pdf, mp4 or gif.
+$export = $client->designs()->export($design->id, 'png');
+echo $export->files[0]->mediaId, PHP_EOL;
+
+// One copy per row, each value filling the layer of the same name.
+$copies = $client->designs()->bulk($design->id, [
+    ['name' => 'Ana', 'headline' => 'Welcome, Ana'],
+    ['name' => 'Ben', 'headline' => 'Welcome, Ben'],
+], nameColumn: 'name');
+
+$copy = $client->designs()->duplicate($design->id, 'Launch story (copy)');
+$posts = $client->designs()->posts($design->id);   // posts that used its exports, with metrics
+$client->designs()->delete($copy->id);
+
+// From text or a post. textToSlides() uses AI credits and needs the `ai` scope.
+$quote = $client->designs()->fromPost($workspaceId, postId: $postId, style: 'quote');
+$outline = $client->designs()->textToSlides($workspaceId, text: $longText, maxSlides: 6);
+echo $outline->cover['title'], ' ', count($outline->slides), PHP_EOL;
+```
+
+## Fonts
+
+The built-in font library, plus fonts uploaded to a workspace. Needs the `posts` scope.
+
+```php
+$fonts = $client->fonts()->list($workspaceId);
+echo $fonts->library[0]->family, ' ', count($fonts->uploaded), PHP_EOL;
+
+// A path, or ['filename' => ..., 'contents' => ..., 'mimeType' => ...] for bytes in memory.
+$font = $client->fonts()->upload($workspaceId, 'BrandSans-Bold.woff2', family: 'Brand Sans', weight: 700);
+$client->fonts()->delete($font->id);
+```
+
+## Video edits
+
+Edit a library video as a background job, then poll it. Needs the `posts` scope; operations whose
+`usesAi` is true (subtitles, translation, clips, voiceover) also need `ai`.
+
+```php
+foreach ($client->videoEdits()->ops() as $op) {
+    echo $op->name, ' ', $op->available ? 'available' : 'off', PHP_EOL;
+}
+
+$job = $client->videoEdits()->create($videoId, [
+    ['op' => 'trim', 'params' => ['startSec' => 0, 'endSec' => 30]],
+    ['op' => 'denoise'],
+]);
+
+while (!in_array($job->status, ['succeeded', 'failed'], true)) {
+    sleep(3);
+    $job = $client->videoEdits()->get($job->id);
+}
+echo $job->resultMediaId ?? $job->error, PHP_EOL;
+
+$recent = $client->videoEdits()->list(mediaId: $videoId);
+```
+
 ## Validate
 
 Check a draft before you schedule it. Nothing is stored; needs the `posts` scope.

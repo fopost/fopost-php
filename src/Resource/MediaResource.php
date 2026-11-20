@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Fopost\Sdk\Resource;
 
+use Fopost\Sdk\Model\GeneratedAltText;
 use Fopost\Sdk\Model\MediaAsset;
 use Fopost\Sdk\Model\Page;
 use Fopost\Sdk\Model\PresignedUpload;
@@ -56,6 +57,15 @@ final class MediaResource extends Resource
     public function delete(string $mediaId): void
     {
         $this->http->delete("/media/{$mediaId}");
+    }
+
+    /**
+     * Write alt text for a library image with AI and store it, replacing any existing text.
+     * Uses AI credits, so an API key also needs the `ai` scope.
+     */
+    public function generateAltText(string $mediaId): GeneratedAltText
+    {
+        return GeneratedAltText::fromArray(self::unwrap($this->http->post("/media/{$mediaId}/alt-text")));
     }
 
     /** The largest file the account may upload, and which route carries it. */
