@@ -97,7 +97,7 @@ throws through `ErrorFactory` or returns the decoded body → the resource calls
 **Resources wired today:** `posts`, `queue`, `accounts`, `connectSessions`, `accountGroups`,
 `workspaces`, `labels`, `ai`, `automations`, `inbox`, `contacts`, `broadcasts`, `sequences`,
 `knowledge`, `ads`, `blogs`, `media`, `validate`, `webhooks`, `whatsapp`, `analytics`, `googleBusiness`,
-`activity`, `logs`. Anything else goes through the escape hatch `Client::request()` until a
+`activity`, `logs`, `designs`, `fonts`, `videoEdits`. Anything else goes through the escape hatch `Client::request()` until a
 resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what is still unwrapped.
 
 - `inbox` (scope `inbox`) covers `/inbox`, `/inbox/posts`, `/inbox/conversations`, `unread-count`,
@@ -139,6 +139,11 @@ resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what
   retry; a non-2xx throws and `complete` is never called). Bodies are camelCase. There is no size
   constant in the SDK: the ceiling is whatever `limits()` answers, and an oversize file is a `413`
   `file_too_large` that falls through to `ApiException` with `max_file_bytes` on `->body`.
+- `designs`, `fonts` and `videoEdits` (scope `posts`; `textToSlides()`, AI video operations and
+  `media()->generateAltText()` also need `ai`). Bodies and queries are snake_case. The design document
+  is a plain array, so an empty JSON object round-trips as `[]` unless the caller passes a `stdClass`.
+  `GET /fonts/{id}/file` is a binary stream and is not wrapped. There is no poll helper for video
+  edit jobs: callers loop on `get()`.
 - `posts()->create()` and `update()` take `files`. Every file at or under
   `limits()->multipartMaxFileBytes` (100 MB when the call fails) goes in one multipart request through
   `HttpClient::requestMultipart()` (`post` JSON field + `files` parts); otherwise each file goes
