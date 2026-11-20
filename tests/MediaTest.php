@@ -6,6 +6,7 @@ namespace Fopost\Sdk\Tests;
 
 use Fopost\Sdk\Exception\ApiException;
 use Fopost\Sdk\Exception\PermissionDeniedException;
+use Fopost\Sdk\Exception\ValidationException;
 
 final class MediaTest extends TestCase
 {
@@ -245,5 +246,34 @@ final class MediaTest extends TestCase
         $this->assertSame('image/png', $page->items[0]->mimeType);
         $this->assertSame('DELETE', $this->transport->last()['method']);
         $this->assertSame('https://api.fopost.com/v1/media/m_1', $this->transport->last()['url']);
+    }
+
+    public function testGenerateAltTextPostsAndMapsTheResult(): void
+    {
+        $this->transport->push(200, [
+            'alt_text' => 'A red bicycle against a white wall',
+            'alt_text_source' => 'ai',
+            'tags' => ['bicycle', 'red'],
+        ]);
+
+        $alt = $this->client()->media()->generateAltText('m_1');
+
+        $this->assertSame('POST', $this->transport->last()['method']);
+        $this->assertSame('https://api.fopost.com/v1/media/m_1/alt-text', $this->transport->last()['url']);
+        $this->assertNull($this->transport->last()['body']);
+        $this->assertSame('A red bicycle against a white wall', $alt->altText);
+        $this->assertSame('ai', $alt->altTextSource);
+        $this->assertSame(['bicycle', 'red'], $alt->tags);
+    }
+
+    public function testGenerateAltTextOnANonImageIsAValidationError(): void
+    {
+        $this->transport->push(400, [
+            'error' => 'validation_error',
+            'message' => 'Alt text can only be generated for images',
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $this->client()->media()->generateAltText('m_video');
     }
 }
