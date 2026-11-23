@@ -6,13 +6,10 @@ namespace Fopost\Sdk\Resource;
 
 use DateTimeInterface;
 use Fopost\Sdk\Model\Ad;
-use Fopost\Sdk\Model\AdAccountTree;
 use Fopost\Sdk\Model\AdActivityResult;
 use Fopost\Sdk\Model\AdBusinessCenter;
-use Fopost\Sdk\Model\AdCampaign;
 use Fopost\Sdk\Model\AdCommentsPage;
 use Fopost\Sdk\Model\AdConnection;
-use Fopost\Sdk\Model\AdCreative;
 use Fopost\Sdk\Model\AdIdentity;
 use Fopost\Sdk\Model\AdInsightsReport;
 use Fopost\Sdk\Model\AdProvider;
@@ -20,7 +17,6 @@ use Fopost\Sdk\Model\AdLabel;
 use Fopost\Sdk\Model\AdPixel;
 use Fopost\Sdk\Model\AdPixelDetail;
 use Fopost\Sdk\Model\AdPixelStats;
-use Fopost\Sdk\Model\AdSet;
 use Fopost\Sdk\Model\AdSource;
 use Fopost\Sdk\Model\AdStudy;
 use Fopost\Sdk\Model\Audience;
@@ -43,7 +39,6 @@ use Fopost\Sdk\Model\LeadFormSource;
 use Fopost\Sdk\Model\LeadPage;
 use Fopost\Sdk\Model\LeadsFeedPage;
 use Fopost\Sdk\Model\LeadsPage;
-use Fopost\Sdk\Model\NetworkAd;
 use Fopost\Sdk\Model\PartnershipCreator;
 use Fopost\Sdk\Model\ReachEstimate;
 use Fopost\Sdk\Model\SupplyForecast;
@@ -58,10 +53,8 @@ use Fopost\Sdk\Model\ValueRuleSet;
  *
  * Meta is what this resource covers; the Google-only surface is ads()->google().
  *
- * Every call needs the `ads` scope. boost(), create(), setStatus(), delete(), bulkSetStatus() and the
- * create, update, delete and duplicate calls on campaigns, ad sets and network ads spend money and
- * also need the `publish` scope. Campaigns, ad sets, network ads and creatives are addressed by the
- * network's own ids and read live, never stored.
+ * Every call needs the `ads` scope. boost(), create(), setStatus(), delete() and bulkSetStatus()
+ * spend money and also need the `publish` scope.
  */
 final class AdsResource extends Resource
 {
@@ -751,234 +744,6 @@ final class AdsResource extends Resource
         ]);
     }
 
-    /** Every campaign on the ad account with its ad sets and ads, read live. */
-    public function accountTree(string $adAccountId, string $connectionId, ?string $workspaceId = null): AdAccountTree
-    {
-        return AdAccountTree::fromArray(self::unwrap($this->http->get(
-            "/ads/accounts/{$adAccountId}/tree",
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /**
-     * Needs the `publish` scope as well as `ads`. Starts paused unless $paused is false.
-     * Goal is engagement, traffic, awareness or video_views.
-     */
-    public function createCampaign(
-        string $workspaceId,
-        string $connectionId,
-        string $adAccountId,
-        string $name,
-        string $goal,
-        ?bool $paused = null,
-        ?bool $smartPlus = null,
-    ): AdCampaign {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'adAccountId' => $adAccountId,
-            'name' => $name,
-            'goal' => $goal,
-            'paused' => $paused,
-            'smartPlus' => $smartPlus,
-        ]);
-
-        return AdCampaign::fromArray(self::unwrap($this->http->post('/ads/campaigns', $body)));
-    }
-
-    public function campaign(string $campaignId, string $connectionId, ?string $workspaceId = null): AdCampaign
-    {
-        return AdCampaign::fromArray(self::unwrap(
-            $this->http->get("/ads/campaigns/{$campaignId}", self::scope($workspaceId, $connectionId)),
-        ));
-    }
-
-    /** Needs the `publish` scope as well as `ads`. Status is `active` or `paused`. */
-    public function updateCampaign(
-        string $campaignId,
-        string $workspaceId,
-        string $connectionId,
-        ?string $name = null,
-        ?string $status = null,
-    ): AdCampaign {
-        $body = self::object(['name' => $name, 'status' => $status]);
-
-        return AdCampaign::fromArray(self::unwrap($this->http->request(
-            'PATCH',
-            "/ads/campaigns/{$campaignId}",
-            $body,
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /** Needs the `publish` scope as well as `ads`. */
-    public function deleteCampaign(string $campaignId, string $workspaceId, string $connectionId): void
-    {
-        $this->http->request('DELETE', "/ads/campaigns/{$campaignId}", null, self::scope($workspaceId, $connectionId));
-    }
-
-    /** Copy the campaign with everything under it and return the copy's id. Needs the `publish` scope. */
-    public function duplicateCampaign(
-        string $campaignId,
-        string $workspaceId,
-        string $connectionId,
-        ?bool $paused = null,
-    ): string {
-        return $this->duplicate("/ads/campaigns/{$campaignId}/duplicate", $workspaceId, $connectionId, $paused);
-    }
-
-    /**
-     * Needs the `publish` scope as well as `ads`. Starts paused unless $paused is false.
-     *
-     * @param array<string, mixed> $budget `{minor, type: daily|lifetime, endAt?}`
-     * @param array<string, mixed> $targeting countries, ageMin, ageMax, gender, audienceIds, locations, ...
-     */
-    public function createAdSet(
-        string $workspaceId,
-        string $connectionId,
-        string $campaignId,
-        string $pageId,
-        string $name,
-        string $goal,
-        array $budget,
-        array $targeting,
-        ?bool $paused = null,
-    ): AdSet {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'campaignId' => $campaignId,
-            'pageId' => $pageId,
-            'name' => $name,
-            'goal' => $goal,
-            'budget' => $budget,
-            'targeting' => $targeting,
-            'paused' => $paused,
-        ]);
-
-        return AdSet::fromArray(self::unwrap($this->http->post('/ads/ad-sets', $body)));
-    }
-
-    public function adSet(string $adSetId, string $connectionId, ?string $workspaceId = null): AdSet
-    {
-        return AdSet::fromArray(self::unwrap(
-            $this->http->get("/ads/ad-sets/{$adSetId}", self::scope($workspaceId, $connectionId)),
-        ));
-    }
-
-    /**
-     * Needs the `publish` scope as well as `ads`. The budget type set at creation stays.
-     *
-     * @param array<string, mixed>|null $targeting replaces the whole targeting spec
-     */
-    public function updateAdSet(
-        string $adSetId,
-        string $workspaceId,
-        string $connectionId,
-        ?string $name = null,
-        ?string $status = null,
-        ?int $budgetMinor = null,
-        string|DateTimeInterface|null $endAt = null,
-        ?array $targeting = null,
-    ): AdSet {
-        $body = self::object([
-            'name' => $name,
-            'status' => $status,
-            'budgetMinor' => $budgetMinor,
-            'endAt' => self::iso($endAt),
-            'targeting' => $targeting,
-        ]);
-
-        return AdSet::fromArray(self::unwrap($this->http->request(
-            'PATCH',
-            "/ads/ad-sets/{$adSetId}",
-            $body,
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /** Needs the `publish` scope as well as `ads`. */
-    public function deleteAdSet(string $adSetId, string $workspaceId, string $connectionId): void
-    {
-        $this->http->request('DELETE', "/ads/ad-sets/{$adSetId}", null, self::scope($workspaceId, $connectionId));
-    }
-
-    /** Copy the ad set with its ads and return the copy's id. Needs the `publish` scope. */
-    public function duplicateAdSet(
-        string $adSetId,
-        string $workspaceId,
-        string $connectionId,
-        ?bool $paused = null,
-    ): string {
-        return $this->duplicate("/ads/ad-sets/{$adSetId}/duplicate", $workspaceId, $connectionId, $paused);
-    }
-
-    /**
-     * Create an ad inside an ad set from a creative. Distinct from create(), the one-call ad.
-     * Needs the `publish` scope as well as `ads`. Starts paused unless $paused is false.
-     */
-    public function createNetworkAd(
-        string $workspaceId,
-        string $connectionId,
-        string $adSetId,
-        string $creativeId,
-        string $name,
-        ?bool $paused = null,
-    ): NetworkAd {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'adSetId' => $adSetId,
-            'creativeId' => $creativeId,
-            'name' => $name,
-            'paused' => $paused,
-        ]);
-
-        return NetworkAd::fromArray(self::unwrap($this->http->post('/ads/ads', $body)));
-    }
-
-    public function networkAd(string $adId, string $connectionId, ?string $workspaceId = null): NetworkAd
-    {
-        return NetworkAd::fromArray(self::unwrap(
-            $this->http->get("/ads/ads/{$adId}", self::scope($workspaceId, $connectionId)),
-        ));
-    }
-
-    /** Needs the `publish` scope as well as `ads`. Status is `active` or `paused`. */
-    public function updateNetworkAd(
-        string $adId,
-        string $workspaceId,
-        string $connectionId,
-        ?string $name = null,
-        ?string $status = null,
-        ?string $creativeId = null,
-    ): NetworkAd {
-        $body = self::object(['name' => $name, 'status' => $status, 'creativeId' => $creativeId]);
-
-        return NetworkAd::fromArray(self::unwrap($this->http->request(
-            'PATCH',
-            "/ads/ads/{$adId}",
-            $body,
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /** Needs the `publish` scope as well as `ads`. */
-    public function deleteNetworkAd(string $adId, string $workspaceId, string $connectionId): void
-    {
-        $this->http->request('DELETE', "/ads/ads/{$adId}", null, self::scope($workspaceId, $connectionId));
-    }
-
-    /** Copy the ad and return the copy's id. Needs the `publish` scope. */
-    public function duplicateNetworkAd(
-        string $adId,
-        string $workspaceId,
-        string $connectionId,
-        ?bool $paused = null,
-    ): string {
-        return $this->duplicate("/ads/ads/{$adId}/duplicate", $workspaceId, $connectionId, $paused);
-    }
-
     /**
      * Set up to 50 campaigns, ad sets or ads `active` or `paused` in one call. Needs the `publish` scope.
      *
@@ -995,71 +760,6 @@ final class AdsResource extends Resource
         ];
 
         return BulkAdStatusResult::listFrom(self::unwrap($this->http->post('/ads/status', $body)));
-    }
-
-    /** @return array<int, AdCreative> */
-    public function creatives(string $connectionId, string $adAccountId, ?string $workspaceId = null): array
-    {
-        $result = self::unwrap($this->http->get('/ads/creatives', [
-            'workspace_id' => $workspaceId,
-            'connection_id' => $connectionId,
-            'ad_account_id' => $adAccountId,
-        ]));
-
-        return AdCreative::listFrom(is_array($result) ? ($result['creatives'] ?? []) : []);
-    }
-
-    /**
-     * Format is image, video or carousel. A video needs $mediaUrl; a carousel needs 2 to 10 $cards.
-     *
-     * @param array<int, array<string, mixed>>|null $cards `{mediaUrl, destinationUrl?, headline?, description?}`
-     */
-    public function createCreative(
-        string $workspaceId,
-        string $connectionId,
-        string $adAccountId,
-        string $pageId,
-        string $name,
-        string $format,
-        string $text,
-        ?string $headline = null,
-        ?string $destinationUrl = null,
-        ?string $callToAction = null,
-        ?string $urlTags = null,
-        ?string $mediaUrl = null,
-        ?string $thumbnailMediaUrl = null,
-        ?array $cards = null,
-    ): AdCreative {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'adAccountId' => $adAccountId,
-            'pageId' => $pageId,
-            'name' => $name,
-            'format' => $format,
-            'text' => $text,
-            'headline' => $headline,
-            'destinationUrl' => $destinationUrl,
-            'callToAction' => $callToAction,
-            'urlTags' => $urlTags,
-            'mediaUrl' => $mediaUrl,
-            'thumbnailMediaUrl' => $thumbnailMediaUrl,
-            'cards' => $cards !== null ? array_values($cards) : null,
-        ]);
-
-        return AdCreative::fromArray(self::unwrap($this->http->post('/ads/creatives', $body)));
-    }
-
-    public function creative(string $creativeId, string $connectionId, ?string $workspaceId = null): AdCreative
-    {
-        return AdCreative::fromArray(self::unwrap(
-            $this->http->get("/ads/creatives/{$creativeId}", self::scope($workspaceId, $connectionId)),
-        ));
-    }
-
-    public function deleteCreative(string $creativeId, string $workspaceId, string $connectionId): void
-    {
-        $this->http->request('DELETE', "/ads/creatives/{$creativeId}", null, self::scope($workspaceId, $connectionId));
     }
 
     public function audience(string $audienceId, string $connectionId, ?string $workspaceId = null): Audience
@@ -1920,17 +1620,5 @@ final class AdsResource extends Resource
         $body = self::compact($body);
 
         return $body === [] ? new \stdClass() : $body;
-    }
-
-    private function duplicate(string $path, string $workspaceId, string $connectionId, ?bool $paused): string
-    {
-        $result = self::unwrap($this->http->request(
-            'POST',
-            $path,
-            self::object(['paused' => $paused]),
-            self::scope($workspaceId, $connectionId),
-        ));
-
-        return is_array($result) && is_string($result['id'] ?? null) ? $result['id'] : '';
     }
 }

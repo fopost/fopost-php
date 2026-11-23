@@ -6,84 +6,6 @@ namespace Fopost\Sdk\Tests;
 
 final class AdsDepthTest extends TestCase
 {
-    public function testAccountTreeParsesCampaignsAdSetsAndAds(): void
-    {
-        $this->transport->push(200, ['data' => [
-            'adAccountId' => 'act_123',
-            'currency' => 'USD',
-            'workspaceId' => 'w_1',
-            'campaigns' => [[
-                'id' => '120',
-                'name' => 'Launch',
-                'status' => 'PAUSED',
-                'objective' => 'OUTCOME_TRAFFIC',
-                'budgetMinor' => null,
-                'adSets' => [[
-                    'id' => '121',
-                    'name' => 'US adults',
-                    'campaignId' => '120',
-                    'status' => 'ACTIVE',
-                    'budgetMinor' => 2500,
-                    'budgetType' => 'daily',
-                    'ads' => [['id' => '122', 'name' => 'Ad A', 'adSetId' => '121', 'status' => 'ACTIVE']],
-                ]],
-            ]],
-        ]]);
-
-        $tree = $this->client()->ads()->accountTree('act_123', 'conn_1', 'w_1');
-
-        $this->assertSame('GET', $this->transport->last()['method']);
-        $this->assertSame(
-            'https://api.fopost.com/v1/ads/accounts/act_123/tree?workspace_id=w_1&connection_id=conn_1',
-            $this->transport->last()['url'],
-        );
-        $this->assertSame('USD', $tree->currency);
-        $this->assertNull($tree->campaigns[0]->budgetMinor);
-        $this->assertSame(2500, $tree->campaigns[0]->adSets[0]->budgetMinor);
-        $this->assertSame('121', $tree->campaigns[0]->adSets[0]->ads[0]->adSetId);
-    }
-
-    public function testCampaignWritesCarryTheConnectionInTheQuery(): void
-    {
-        $this->transport->push(201, ['data' => ['id' => '120', 'name' => 'Launch', 'status' => 'PAUSED']]);
-        $campaign = $this->client()->ads()->createCampaign('w_1', 'conn_1', 'act_123', 'Launch', 'traffic');
-        $this->assertSame('https://api.fopost.com/v1/ads/campaigns', $this->transport->last()['url']);
-        $this->assertSame([
-            'workspaceId' => 'w_1',
-            'connectionId' => 'conn_1',
-            'adAccountId' => 'act_123',
-            'name' => 'Launch',
-            'goal' => 'traffic',
-        ], $this->transport->lastJson());
-        $this->assertSame('120', $campaign->id);
-
-        $this->transport->push(200, ['data' => ['id' => '120', 'name' => 'Launch', 'status' => 'ACTIVE']]);
-        $this->client()->ads()->updateCampaign('120', 'w_1', 'conn_1', status: 'active');
-        $this->assertSame('PATCH', $this->transport->last()['method']);
-        $this->assertSame(
-            'https://api.fopost.com/v1/ads/campaigns/120?workspace_id=w_1&connection_id=conn_1',
-            $this->transport->last()['url'],
-        );
-        $this->assertSame(['status' => 'active'], $this->transport->lastJson());
-
-        $this->transport->push(201, ['data' => ['id' => '130']]);
-        $copy = $this->client()->ads()->duplicateCampaign('120', 'w_1', 'conn_1');
-        $this->assertSame(
-            'https://api.fopost.com/v1/ads/campaigns/120/duplicate?workspace_id=w_1&connection_id=conn_1',
-            $this->transport->last()['url'],
-        );
-        $this->assertSame('{}', $this->transport->last()['body']);
-        $this->assertSame('130', $copy);
-
-        $this->transport->push(200, ['message' => 'deleted']);
-        $this->client()->ads()->deleteNetworkAd('122', 'w_1', 'conn_1');
-        $this->assertSame('DELETE', $this->transport->last()['method']);
-        $this->assertSame(
-            'https://api.fopost.com/v1/ads/ads/122?workspace_id=w_1&connection_id=conn_1',
-            $this->transport->last()['url'],
-        );
-    }
-
     public function testBulkStatusReturnsOneResultPerObject(): void
     {
         $this->transport->push(200, ['data' => [
@@ -180,36 +102,8 @@ final class AdsDepthTest extends TestCase
         $this->assertNull($next->nextCursor);
     }
 
-    public function testCreativesAudiencesAndLeadPages(): void
+    public function testAudienceUsersAndLeadPages(): void
     {
-        $this->transport->push(200, ['data' => [
-            'creatives' => [['id' => 'cr_1', 'name' => 'Hero', 'format' => 'image', 'urlTags' => 'utm_source=meta']],
-            'workspaceId' => 'w_1',
-        ]]);
-        $creatives = $this->client()->ads()->creatives('conn_1', 'act_123');
-        $this->assertSame(
-            'https://api.fopost.com/v1/ads/creatives?connection_id=conn_1&ad_account_id=act_123',
-            $this->transport->last()['url'],
-        );
-        $this->assertSame('utm_source=meta', $creatives[0]->urlTags);
-
-        $this->transport->push(201, ['data' => ['id' => 'cr_2', 'name' => 'Carousel', 'format' => 'carousel']]);
-        $this->client()->ads()->createCreative(
-            workspaceId: 'w_1',
-            connectionId: 'conn_1',
-            adAccountId: 'act_123',
-            pageId: '555',
-            name: 'Carousel',
-            format: 'carousel',
-            text: 'Two looks',
-            urlTags: 'utm_medium=paid',
-            cards: [['mediaUrl' => 'https://cdn/a.png'], ['mediaUrl' => 'https://cdn/b.png']],
-        );
-        $body = $this->transport->lastJson();
-        $this->assertSame('utm_medium=paid', $body['urlTags']);
-        $this->assertCount(2, $body['cards']);
-        $this->assertArrayNotHasKey('mediaUrl', $body);
-
         $this->transport->push(200, ['data' => ['added' => 2]]);
         $emails = ['a@example.invalid', 'b@example.invalid'];
         $added = $this->client()->ads()->addAudienceUsers('aud_1', 'w_1', 'conn_1', $emails);

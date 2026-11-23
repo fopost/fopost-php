@@ -30,7 +30,7 @@ final class AdsTikTokTest extends TestCase
         $this->assertStringContainsString('identity_id=idt_1', $this->transport->last()['url']);
     }
 
-    public function testSparkPostIdAndSmartPlusTravelInTheBody(): void
+    public function testSparkPostIdTravelsInTheBody(): void
     {
         $this->transport->push(201, ['data' => [
             'id' => 'ad_1',
@@ -53,10 +53,6 @@ final class AdsTikTokTest extends TestCase
             sparkPostId: 'item_99',
         );
         $this->assertSame('item_99', $this->transport->lastJson()['sparkPostId']);
-
-        $this->transport->push(201, ['data' => ['id' => 'c1', 'name' => 'Smart', 'status' => 'PAUSED']]);
-        $this->client()->ads()->createCampaign('w_1', 'conn_1', '7011', 'Smart', 'traffic', smartPlus: true);
-        $this->assertTrue($this->transport->lastJson()['smartPlus']);
     }
 
     public function testConversionsReportWhatTheNetworkAccepted(): void
