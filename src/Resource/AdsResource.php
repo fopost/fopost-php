@@ -15,7 +15,6 @@ use Fopost\Sdk\Model\AdConnection;
 use Fopost\Sdk\Model\AdCreative;
 use Fopost\Sdk\Model\AdIdentity;
 use Fopost\Sdk\Model\AdInsightsReport;
-use Fopost\Sdk\Model\AdLibraryPage;
 use Fopost\Sdk\Model\AdProvider;
 use Fopost\Sdk\Model\AdLabel;
 use Fopost\Sdk\Model\AdPixel;
@@ -1794,37 +1793,6 @@ final class AdsResource extends Resource
         string $adAccountId,
     ): ReachFrequencyPrediction {
         return $this->reachFrequencyAction($predictionId, 'cancel', $workspaceId, $connectionId, $adAccountId);
-    }
-
-    // ─── Ad Library ─────────────────────────────────────────────────
-
-    /**
-     * The public ad archive: ads anyone is running, by keyword or by Page. Read live on
-     * every call and stored nowhere, so an ad that stops running is simply absent next time.
-     *
-     * @param array<int, string> $countries
-     * @param array<int, string>|null $pageIds
-     */
-    public function library(
-        string $connectionId,
-        array $countries,
-        ?string $workspaceId = null,
-        ?string $q = null,
-        ?array $pageIds = null,
-        ?string $activeStatus = null,
-        ?int $limit = null,
-        ?string $after = null,
-    ): AdLibraryPage {
-        $query = self::scope($workspaceId, $connectionId) + [
-            'countries' => implode(',', $countries),
-            'q' => $q,
-            'page_ids' => $pageIds !== null ? implode(',', $pageIds) : null,
-            'active_status' => $activeStatus,
-            'limit' => $limit !== null ? (string) $limit : null,
-            'after' => $after,
-        ];
-
-        return AdLibraryPage::fromArray(self::unwrap($this->http->get('/ads/library', $query)));
     }
 
     // ─── Partnership ads ────────────────────────────────────────────

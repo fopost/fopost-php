@@ -643,7 +643,7 @@ $client->ads()->deleteCampaign($copyId, $workspaceId, $connectionId);
 // deleteNetworkAd(), duplicateAdSet(), duplicateNetworkAd(), creatives(), creative(), deleteCreative()
 ```
 
-### Forecasts, conversions and the ad library
+### Forecasts and conversions
 
 Available wherever the network's `capabilities` say so — `providers()` reports them.
 
@@ -659,8 +659,6 @@ $client->ads()->attachConversionRule($ruleId, $workspaceId, $connectionId, $adSe
 $client->ads()->conversionMetrics($ruleId, $workspaceId, $connectionId, '2026-09-01', '2026-09-30');
 // Each event needs happenedAt in epoch ms and an email or a clickId; the API hashes the address.
 $client->ads()->sendConversionEvents($ruleId, $workspaceId, $connectionId, $events);
-
-$page = $client->ads()->adLibrary($workspaceId, $connectionId, keyword: 'crm', countries: ['US']);
 ```
 
 ### Pixels, the Conversions API and custom conversions
@@ -736,7 +734,7 @@ while ($page->nextCursor !== null) {
 $client->ads()->unsubscribeLeadPage('555', $workspaceId, $connectionId);
 ```
 
-Catalogs, predictions and the public archive:
+Catalogs and predictions:
 
 ```php
 // Ask the connection what it can run, rather than assuming.
@@ -770,9 +768,6 @@ $prediction = $client->ads()->createReachFrequency(
     '2026-10-08T00:00:00Z',
 );
 $client->ads()->reserveReachFrequency($prediction->id, $workspaceId, $connectionId, 'act_1234567890');
-
-// What anyone is running, read live and stored nowhere.
-$archive = $client->ads()->library($connectionId, ['US'], $workspaceId, q: 'running shoes');
 ```
 
 ## Media
