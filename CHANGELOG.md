@@ -69,6 +69,23 @@ All notable changes to `fopost/sdk` are documented here.
   `BlogWebsiteTest`, `BlogKeyword`, `BlogArticle`, `BlogArticleFull`, `BlogArticleImage` and
   `BlogArticleWebhookPayload` models, and `WebhookEvent::article()`. The API no longer serves
   them; articles are ordinary posts. `$client->blogs()` is unchanged.
+- **Breaking:** the ads campaign tree and network objects: `accountTree()`, `createCampaign()`,
+  `campaign()`, `updateCampaign()`, `deleteCampaign()`, `duplicateCampaign()`, `createAdSet()`,
+  `adSet()`, `updateAdSet()`, `deleteAdSet()`, `duplicateAdSet()`, `createNetworkAd()`,
+  `networkAd()`, `updateNetworkAd()`, `deleteNetworkAd()` and `duplicateNetworkAd()`, with the
+  `AdAccountTree`, `AdCampaign`, `AdSet` and `NetworkAd` models. The API no longer serves them.
+  `bulkSetStatus()` and the `$client->ads()` methods on `/ads` and `/ads/{id}` are unchanged.
+- **Breaking:** creatives (`creatives()`, `createCreative()`, `creative()`, `deleteCreative()` and
+  `AdCreative`), product catalogs (`catalogs()`, `createCatalog()`, `getCatalog()`,
+  `updateCatalog()`, `deleteCatalog()`, `catalogProducts()`, `writeCatalogProducts()`,
+  `productFeeds()`, `createProductFeed()`, `deleteProductFeed()`, `feedUploads()`,
+  `startFeedUpload()`, `productSets()`, `createProductSet()`, `updateProductSet()`,
+  `deleteProductSet()` and their models) and the Ad Library (`library()`, `AdLibraryPage`,
+  `AdLibraryEntry`). The API no longer serves them.
+- **Breaking:** the Google keyword, search term, negative keyword list, asset, asset group,
+  recommendation and optimization score methods on `$client->ads()->google()`, with their
+  `Google*` models. Bid strategies, the ad schedule, Local Services leads, conversions and
+  `query()` are unchanged.
 
 ## 0.4.0 - 2026-10-18
 
