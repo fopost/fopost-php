@@ -60,7 +60,7 @@ final class AdsResource extends Resource
 {
     private ?GoogleAdsResource $google = null;
 
-    /** The Search surface no other network has: keywords, assets, conversions, GAQL. */
+    /** The Google-only surface: bid strategies, ad schedule, Local Services leads, conversions, GAQL. */
     public function google(): GoogleAdsResource
     {
         return $this->google ??= new GoogleAdsResource($this->http);
