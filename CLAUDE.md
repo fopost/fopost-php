@@ -69,7 +69,7 @@ src/
     Ad.php AdInsights.php ExternalAd.php AdConnection.php AdSource.php BoostablePost.php
     Audience.php AudiencesResult.php CreatedAudience.php TargetingOption.php
     LeadForm.php LeadFormSource.php Lead.php LeadsPage.php LeadFormDetail.php FeedLead.php LeadsFeedPage.php LeadPage.php
-    AdAccountTree.php AdCampaign.php AdSet.php NetworkAd.php AdCreative.php BulkAdStatusResult.php
+    BulkAdStatusResult.php
     AdInsightsReport.php InsightsMetrics.php InsightsRow.php ReachEstimate.php
     AdPixel.php AdPixelDetail.php AdPixelStats.php AdPixelEventCount.php EventMatchQuality.php EventMatchKey.php
     ConversionUploadResult.php ConversionBatch.php ConversionBatchEvent.php CustomConversion.php CustomConversionRule.php
@@ -120,17 +120,17 @@ resource is added. `scripts/sdk-gaps.mjs` in `fopost-api-collections` lists what
   own `PageMeta`. A recipient's `skipReason` is the messaging window's record: `window_closed`
   means the network's 24-hour window had shut and nothing was attempted, so a sent count lower
   than the audience is correct rather than a failure.
-- `ads` (scope `ads`) covers the full `/ads` family: ads, external ads, boostable posts,
-  connections (+ Meta authorize), sources, boost, create, refresh, status, delete, audiences,
-  targeting search, lead forms and leads, plus the campaign tree (campaigns, ad sets, network ads,
-  duplicate, bulk status), creatives, audience detail and users, reach, insights, and the stored leads
-  feed with Page subscriptions, plus pixels (`pixels`, `createPixel`, `pixel`, `updatePixel`, `sharePixel`,
-  `pixelStats`, `eventMatchQuality`), the Conversions API (`uploadConversions`, `sendConversions` with a required
-  `Idempotency-Key`, `listConversionEvents`) and custom conversions. `sendConversionEvents()` is the older
-  LinkedIn conversion-rule send, hence the different name. `boost()`, `create()`, `setStatus()`, `delete()`, `bulkSetStatus()` and
-  every campaign, ad set and network ad write also need the `publish` scope, and anything created
-  starts paused unless `paused` is `false`. Campaign-tree objects take Meta ids plus `connection_id`
-  and are read live. An empty update or duplicate body goes out as `{}` because the API rejects none. Request
+- `ads` (scope `ads`) covers the `/ads` family: ads, external ads, boostable posts,
+  connections (+ Meta authorize), sources, boost, create, refresh, status, delete, bulk status by
+  network id, audiences, targeting search, lead forms and leads, audience detail and users, reach,
+  insights, and the stored leads feed with Page subscriptions, plus pixels (`pixels`, `createPixel`,
+  `pixel`, `updatePixel`, `sharePixel`, `pixelStats`, `eventMatchQuality`), the Conversions API
+  (`uploadConversions`, `sendConversions` with a required `Idempotency-Key`, `listConversionEvents`)
+  and custom conversions. `ads()->google()` covers bid strategies, the ad schedule, Local Services
+  leads, conversions and GAQL. `sendConversionEvents()` is the older LinkedIn conversion-rule send,
+  hence the different name. `boost()`, `create()`, `setStatus()`, `delete()` and `bulkSetStatus()`
+  also need the `publish` scope, and anything created starts paused unless `paused` is `false`.
+  An empty update body goes out as `{}` because the API rejects none. Request
   bodies are camelCase; query params stay snake_case. `Resource::page()` is the shared
   `{data, meta}` → `Page` helper.
 - `media` (scope `posts`) is direct upload only: `limits()` → `UploadLimits`, `presign()` →

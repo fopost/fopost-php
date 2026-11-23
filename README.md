@@ -600,50 +600,18 @@ $leads = $client->ads()->leads($formId, $connectionId, '555');
 $more = $client->ads()->leads($formId, $connectionId, '555', after: $leads->nextCursor);
 ```
 
-### Campaigns, ad sets and ads
+### Bulk status
 
-These are addressed by Meta's own ids plus the `connectionId`, and read live, never stored. Creating, updating, deleting or duplicating any of them, and `bulkSetStatus()`, also need `publish`. New objects start paused unless `paused: false` is passed.
+Pause or resume up to 50 campaigns, ad sets or ads at once by the network's own ids. Needs `publish` as well as `ads`.
 
 ```php
-$tree = $client->ads()->accountTree('act_123', $connectionId);   // campaigns → adSets → ads
-
-$campaign = $client->ads()->createCampaign($workspaceId, $connectionId, 'act_123', 'Launch', 'traffic');
-$adSet = $client->ads()->createAdSet(
-    workspaceId: $workspaceId,
-    connectionId: $connectionId,
-    campaignId: $campaign->id,
-    pageId: '555',
-    name: 'US adults',
-    goal: 'traffic',
-    budget: ['minor' => 2500, 'type' => 'daily'],
-    targeting: ['countries' => ['US'], 'ageMin' => 18, 'ageMax' => 65, 'gender' => 'all'],
-);
-$creative = $client->ads()->createCreative(
-    workspaceId: $workspaceId,
-    connectionId: $connectionId,
-    adAccountId: 'act_123',
-    pageId: '555',
-    name: 'Hero',
-    format: 'image',
-    text: 'Meet the new plan',
-    destinationUrl: 'https://yourbrand.com/plans',
-    urlTags: 'utm_source=meta&utm_medium=paid',
-    mediaUrl: $asset->url,
-);
-$ad = $client->ads()->createNetworkAd($workspaceId, $connectionId, $adSet->id, $creative->id, 'Hero ad');
-
-$client->ads()->updateAdSet($adSet->id, $workspaceId, $connectionId, budgetMinor: 5000);
-$copyId = $client->ads()->duplicateCampaign($campaign->id, $workspaceId, $connectionId);
 $client->ads()->bulkSetStatus($workspaceId, $connectionId, 'active', [
-    ['id' => $campaign->id, 'level' => 'campaign'],
-    ['id' => $ad->id, 'level' => 'ad'],
+    ['id' => $campaignId, 'level' => 'campaign'],
+    ['id' => $adId, 'level' => 'ad'],
 ]);
-$client->ads()->deleteCampaign($copyId, $workspaceId, $connectionId);
-// also: campaign(), adSet(), networkAd(), updateCampaign(), updateNetworkAd(), deleteAdSet(),
-// deleteNetworkAd(), duplicateAdSet(), duplicateNetworkAd(), creatives(), creative(), deleteCreative()
 ```
 
-### Forecasts, conversions and the ad library
+### Forecasts and conversions
 
 Available wherever the network's `capabilities` say so — `providers()` reports them.
 
@@ -659,8 +627,6 @@ $client->ads()->attachConversionRule($ruleId, $workspaceId, $connectionId, $adSe
 $client->ads()->conversionMetrics($ruleId, $workspaceId, $connectionId, '2026-09-01', '2026-09-30');
 // Each event needs happenedAt in epoch ms and an email or a clickId; the API hashes the address.
 $client->ads()->sendConversionEvents($ruleId, $workspaceId, $connectionId, $events);
-
-$page = $client->ads()->adLibrary($workspaceId, $connectionId, keyword: 'crm', countries: ['US']);
 ```
 
 ### Pixels, the Conversions API and custom conversions
@@ -715,7 +681,7 @@ $reach = $client->ads()->estimateReach($workspaceId, $connectionId, 'act_123', '
 ]);
 
 // any campaign, ad set or ad by Meta id; breakdown is age, gender, placement or country
-$report = $client->ads()->insights($connectionId, $campaign->id, '2026-09-01', '2026-09-07', breakdown: 'age', daily: true);
+$report = $client->ads()->insights($connectionId, $campaignId, '2026-09-01', '2026-09-07', breakdown: 'age', daily: true);
 $report = $client->ads()->adInsights($boost->id, $workspaceId, '2026-09-01', '2026-09-07');   // a FoPost ad id
 ```
 
@@ -736,26 +702,11 @@ while ($page->nextCursor !== null) {
 $client->ads()->unsubscribeLeadPage('555', $workspaceId, $connectionId);
 ```
 
-Catalogs, predictions and the public archive:
+Goals and predictions:
 
 ```php
 // Ask the connection what it can run, rather than assuming.
 $goals = $client->ads()->goals($connectionId, $workspaceId);
-
-// A catalog with a product set is what a catalog ad runs from.
-$catalog = $client->ads()->createCatalog($workspaceId, $connectionId, 'Shop');
-$client->ads()->writeCatalogProducts($catalog->id, $workspaceId, $connectionId, [
-    [
-        'op' => 'upsert',
-        'retailerId' => 'SKU-1042',
-        'name' => 'Trail Runner',
-        'url' => 'https://yourbrand.com/shop/trail-runner',
-        'imageUrl' => 'https://yourbrand.com/img/trail-runner.jpg',
-        'priceMinor' => 12900,
-        'currency' => 'USD',
-    ],
-]);
-$set = $client->ads()->createProductSet($catalog->id, $workspaceId, $connectionId, 'Best sellers');
 
 // Price a flight before buying it.
 $prediction = $client->ads()->createReachFrequency(
@@ -770,9 +721,6 @@ $prediction = $client->ads()->createReachFrequency(
     '2026-10-08T00:00:00Z',
 );
 $client->ads()->reserveReachFrequency($prediction->id, $workspaceId, $connectionId, 'act_1234567890');
-
-// What anyone is running, read live and stored nowhere.
-$archive = $client->ads()->library($connectionId, ['US'], $workspaceId, q: 'running shoes');
 ```
 
 ## Media
@@ -1217,24 +1165,21 @@ MIT. Copyright Porter Bridge, LLC.
 
 ### Google Ads
 
-Campaigns, ad groups, ads, audiences and insights are on `$client->ads()` and dispatch by
-connection. What only Google has is under `$client->ads()->google()`:
+Audiences and insights are on `$client->ads()` and dispatch by connection. What only Google
+has is under `$client->ads()->google()`:
 
 ```php
-$keywords = $client->ads()->google()->keywords('c4d5e6f7-…', '1234567890');
+$strategies = $client->ads()->google()->bidStrategies('c4d5e6f7-…', '1234567890');
 
-$client->ads()->google()->createKeyword(
+$client->ads()->google()->setAdSchedule(
     workspaceId: '7d2b8c11-…',
     connectionId: 'c4d5e6f7-…',
     customerId: '1234567890',
-    adGroupId: '1234567890~adGroup~77',
-    text: 'running shoes',
-    matchType: 'EXACT',
+    campaignId: '1234567890~campaign~55',
+    slots: [['dayOfWeek' => 'MONDAY', 'startHour' => 9, 'endHour' => 18]],
 );
 ```
 
-Also `keywordIdeas()`, `keywordMetrics()`, `searchTerms()`, `bidStrategies()`,
-`adSchedule()` and `setAdSchedule()`, the negative keyword lists, `assets()` and
-`assetGroups()`, `localServicesLeads()`, the conversion methods, and `query()` for a raw
-read-only GAQL SELECT. Changes need the `publish` scope as well as `ads`; the customer id
-has to name an account the connection's grant reaches.
+Also `createBidStrategy()`, `adSchedule()`, `localServicesLeads()`, the conversion methods,
+and `query()` for a raw read-only GAQL SELECT. Changes need the `publish` scope as well as
+`ads`; the customer id has to name an account the connection's grant reaches.
