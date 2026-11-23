@@ -33,8 +33,6 @@ use Fopost\Sdk\Model\ConversionMetrics;
 use Fopost\Sdk\Model\ConversionRule;
 use Fopost\Sdk\Model\ConversionUploadResult;
 use Fopost\Sdk\Model\CustomConversion;
-use Fopost\Sdk\Model\CatalogBatchResult;
-use Fopost\Sdk\Model\CatalogProductsPage;
 use Fopost\Sdk\Model\CreatedAudience;
 use Fopost\Sdk\Model\EventMatchQuality;
 use Fopost\Sdk\Model\ExternalAd;
@@ -47,11 +45,6 @@ use Fopost\Sdk\Model\LeadsFeedPage;
 use Fopost\Sdk\Model\LeadsPage;
 use Fopost\Sdk\Model\NetworkAd;
 use Fopost\Sdk\Model\PartnershipCreator;
-use Fopost\Sdk\Model\ProductCatalog;
-use Fopost\Sdk\Model\ProductCatalogsResult;
-use Fopost\Sdk\Model\ProductFeed;
-use Fopost\Sdk\Model\ProductFeedUpload;
-use Fopost\Sdk\Model\ProductSet;
 use Fopost\Sdk\Model\ReachEstimate;
 use Fopost\Sdk\Model\SupplyForecast;
 use Fopost\Sdk\Model\SparkPost;
@@ -61,7 +54,7 @@ use Fopost\Sdk\Model\TargetingOption;
 use Fopost\Sdk\Model\ValueRuleSet;
 
 /**
- * $client->ads(): ads, catalogs, audiences, the ad archive and lead forms.
+ * $client->ads(): ads, audiences and lead forms.
  *
  * Meta is what this resource covers; the Google-only surface is ads()->google().
  *
@@ -1461,259 +1454,6 @@ final class AdsResource extends Resource
         $result = self::unwrap($this->http->get('/ads/goals', self::scope($workspaceId, $connectionId)));
 
         return is_array($result) ? array_values(array_filter($result, 'is_string')) : [];
-    }
-
-    // ─── Product catalogs ───────────────────────────────────────────
-
-    /** Catalogs the connection's business portfolios reach. Read live, never stored. */
-    public function catalogs(string $connectionId, ?string $workspaceId = null): ProductCatalogsResult
-    {
-        return ProductCatalogsResult::fromArray(
-            self::unwrap($this->http->get('/ads/catalogs', self::scope($workspaceId, $connectionId)))
-        );
-    }
-
-    /** Created on the connection's business portfolio. Also needs the `publish` scope. */
-    public function createCatalog(
-        string $workspaceId,
-        string $connectionId,
-        string $name,
-        ?string $vertical = null,
-    ): ProductCatalog {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'name' => $name,
-            'vertical' => $vertical,
-        ]);
-
-        return ProductCatalog::fromArray(self::unwrap($this->http->post('/ads/catalogs', $body)));
-    }
-
-    public function getCatalog(string $catalogId, string $connectionId, ?string $workspaceId = null): ProductCatalog
-    {
-        return ProductCatalog::fromArray(
-            self::unwrap($this->http->get("/ads/catalogs/{$catalogId}", self::scope($workspaceId, $connectionId)))
-        );
-    }
-
-    /** Also needs the `publish` scope. */
-    public function updateCatalog(
-        string $catalogId,
-        string $workspaceId,
-        string $connectionId,
-        string $name,
-    ): ProductCatalog {
-        $body = ['workspaceId' => $workspaceId, 'connectionId' => $connectionId, 'name' => $name];
-
-        return ProductCatalog::fromArray(self::unwrap($this->http->request(
-            'PATCH',
-            "/ads/catalogs/{$catalogId}",
-            $body,
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /** Deletes every product, feed and set in it. Also needs the `publish` scope. */
-    public function deleteCatalog(string $catalogId, string $workspaceId, string $connectionId): void
-    {
-        $this->http->request('DELETE', "/ads/catalogs/{$catalogId}", null, self::scope($workspaceId, $connectionId));
-    }
-
-    /** One page of products; pass `nextCursor` back as `$after`. */
-    public function catalogProducts(
-        string $catalogId,
-        string $connectionId,
-        ?string $workspaceId = null,
-        ?string $after = null,
-    ): CatalogProductsPage {
-        $query = self::scope($workspaceId, $connectionId) + ['after' => $after];
-
-        return CatalogProductsPage::fromArray(
-            self::unwrap($this->http->get("/ads/catalogs/{$catalogId}/products", $query))
-        );
-    }
-
-    /**
-     * Up to 500 upserts and deletes in one batch, keyed by your own `retailerId`.
-     * Also needs the `publish` scope.
-     *
-     * @param array<int, array<string, mixed>> $products
-     */
-    public function writeCatalogProducts(
-        string $catalogId,
-        string $workspaceId,
-        string $connectionId,
-        array $products,
-    ): CatalogBatchResult {
-        $body = [
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'products' => array_values($products),
-        ];
-
-        return CatalogBatchResult::fromArray(
-            self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/products", $body))
-        );
-    }
-
-    /** @return array<int, ProductFeed> */
-    public function productFeeds(string $catalogId, string $connectionId, ?string $workspaceId = null): array
-    {
-        return ProductFeed::listFrom(
-            self::unwrap($this->http->get("/ads/catalogs/{$catalogId}/feeds", self::scope($workspaceId, $connectionId)))
-        );
-    }
-
-    /** `$schedule` is HOURLY, DAILY or WEEKLY and needs `$url`. Also needs the `publish` scope. */
-    public function createProductFeed(
-        string $catalogId,
-        string $workspaceId,
-        string $connectionId,
-        string $name,
-        ?string $url = null,
-        ?string $schedule = null,
-    ): ProductFeed {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'name' => $name,
-            'url' => $url,
-            'schedule' => $schedule,
-        ]);
-
-        return ProductFeed::fromArray(self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/feeds", $body)));
-    }
-
-    /** Also needs the `publish` scope. */
-    public function deleteProductFeed(
-        string $catalogId,
-        string $feedId,
-        string $workspaceId,
-        string $connectionId,
-    ): void {
-        $this->http->request(
-            'DELETE',
-            "/ads/catalogs/{$catalogId}/feeds/{$feedId}",
-            null,
-            self::scope($workspaceId, $connectionId),
-        );
-    }
-
-    /**
-     * Each run the network made of the feed.
-     *
-     * @return array<int, ProductFeedUpload>
-     */
-    public function feedUploads(
-        string $catalogId,
-        string $feedId,
-        string $connectionId,
-        ?string $workspaceId = null,
-    ): array {
-        return ProductFeedUpload::listFrom(self::unwrap($this->http->get(
-            "/ads/catalogs/{$catalogId}/feeds/{$feedId}/uploads",
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /** Fetches the feed now; the id of the run. Also needs the `publish` scope. */
-    public function startFeedUpload(
-        string $catalogId,
-        string $feedId,
-        string $workspaceId,
-        string $connectionId,
-        ?string $url = null,
-    ): string {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'url' => $url,
-        ]);
-        $result = self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/feeds/{$feedId}/uploads", $body));
-        $id = is_array($result) ? ($result['id'] ?? null) : null;
-
-        return is_string($id) ? $id : '';
-    }
-
-    /**
-     * A catalog ad runs from a product set, not the whole catalog.
-     *
-     * @return array<int, ProductSet>
-     */
-    public function productSets(string $catalogId, string $connectionId, ?string $workspaceId = null): array
-    {
-        return ProductSet::listFrom(self::unwrap($this->http->get(
-            "/ads/catalogs/{$catalogId}/product-sets",
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /**
-     * Without a `$filter` the set is the whole catalog. Also needs the `publish` scope.
-     *
-     * @param array<string, mixed>|null $filter
-     */
-    public function createProductSet(
-        string $catalogId,
-        string $workspaceId,
-        string $connectionId,
-        string $name,
-        ?array $filter = null,
-    ): ProductSet {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'name' => $name,
-            'filter' => $filter,
-        ]);
-
-        return ProductSet::fromArray(
-            self::unwrap($this->http->post("/ads/catalogs/{$catalogId}/product-sets", $body))
-        );
-    }
-
-    /**
-     * Also needs the `publish` scope.
-     *
-     * @param array<string, mixed>|null $filter
-     */
-    public function updateProductSet(
-        string $catalogId,
-        string $setId,
-        string $workspaceId,
-        string $connectionId,
-        string $name,
-        ?array $filter = null,
-    ): ProductSet {
-        $body = self::compact([
-            'workspaceId' => $workspaceId,
-            'connectionId' => $connectionId,
-            'name' => $name,
-            'filter' => $filter,
-        ]);
-
-        return ProductSet::fromArray(self::unwrap($this->http->request(
-            'PATCH',
-            "/ads/catalogs/{$catalogId}/product-sets/{$setId}",
-            $body,
-            self::scope($workspaceId, $connectionId),
-        )));
-    }
-
-    /** Also needs the `publish` scope. */
-    public function deleteProductSet(
-        string $catalogId,
-        string $setId,
-        string $workspaceId,
-        string $connectionId,
-    ): void {
-        $this->http->request(
-            'DELETE',
-            "/ads/catalogs/{$catalogId}/product-sets/{$setId}",
-            null,
-            self::scope($workspaceId, $connectionId),
-        );
     }
 
     // ─── Reach and frequency ────────────────────────────────────────

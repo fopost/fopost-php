@@ -734,26 +734,11 @@ while ($page->nextCursor !== null) {
 $client->ads()->unsubscribeLeadPage('555', $workspaceId, $connectionId);
 ```
 
-Catalogs and predictions:
+Goals and predictions:
 
 ```php
 // Ask the connection what it can run, rather than assuming.
 $goals = $client->ads()->goals($connectionId, $workspaceId);
-
-// A catalog with a product set is what a catalog ad runs from.
-$catalog = $client->ads()->createCatalog($workspaceId, $connectionId, 'Shop');
-$client->ads()->writeCatalogProducts($catalog->id, $workspaceId, $connectionId, [
-    [
-        'op' => 'upsert',
-        'retailerId' => 'SKU-1042',
-        'name' => 'Trail Runner',
-        'url' => 'https://yourbrand.com/shop/trail-runner',
-        'imageUrl' => 'https://yourbrand.com/img/trail-runner.jpg',
-        'priceMinor' => 12900,
-        'currency' => 'USD',
-    ],
-]);
-$set = $client->ads()->createProductSet($catalog->id, $workspaceId, $connectionId, 'Best sellers');
 
 // Price a flight before buying it.
 $prediction = $client->ads()->createReachFrequency(
